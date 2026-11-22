@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="es" data-size="1">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tejiendo Geometrías</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Idea de diseño: poster tejido. Portada nocturna con el balay como protagonista; el resto en papel claro con
+   tarjetas de sombra dura. Cada fase completada enciende una capa del balay y un rombo en la barra. */
+:root{
+  --paper:#F4ECDF; --surface:#FFFBF4; --ink:#1A130C; --muted:#5A4838; --line:#D8C8AE;
+  --h1:150; --h2:75; --h3:120;
+  --achiote:#7A4624; --river:#3B2A1B; --fiber:#D9BC8C; --tinta:#2B2218; --night:#120D08;
+  --on-accent:#FFFFFF; --focus:#0B57D0; --shc:#17150F;
+  --good:#2F6B2F; --goodbg:#E4EEDC; --bad:#A82E19; --badbg:#F6E0DA;
+  --display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15100B; --surface:#201910; --ink:#F4EAD9; --muted:#CDBBA3; --line:#41331F;
+    --achiote:#D49A5E; --river:#C9A877; --on-accent:#1A0A06; --focus:#8AB4FF; --night:#0A0805;
+    --shc:color-mix(in srgb,var(--achiote) 55%,transparent);
+    --good:#7FD39A; --goodbg:#1C3324; --bad:#F29A88; --badbg:#3A1F19;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15100B; --surface:#201910; --ink:#F4EAD9; --muted:#CDBBA3; --line:#41331F;
+  --achiote:#D49A5E; --river:#C9A877; --on-accent:#1A0A06; --focus:#8AB4FF; --night:#0A0805;
+  --shc:color-mix(in srgb,var(--achiote) 55%,transparent);
+  --good:#7FD39A; --goodbg:#1C3324; --bad:#F29A88; --badbg:#3A1F19;
+  color-scheme:dark;
+}
+:root[data-contrast="high"]{
+  --paper:#FFFFFF; --surface:#FFFFFF; --ink:#000000; --muted:#000000; --line:#000000;
+  --achiote:#5A2E10; --river:#1A0F06; --on-accent:#FFFFFF; --focus:#0000EE; --night:#000000; --shc:#000000;
+  --good:#00501F; --goodbg:#FFFFFF; --bad:#8A1500; --badbg:#FFFFFF;
+  color-scheme:light;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{font-size:112.5%;scroll-behavior:smooth;scroll-padding-top:5rem;-webkit-text-size-adjust:100%}
+html[data-size="0"]{font-size:100%}
+html[data-size="2"]{font-size:125%}
+html[data-size="3"]{font-size:137.5%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 1rem/1.62 var(--body);overflow-x:hidden}
+h1,h2,h3,h4{font-family:var(--display);line-height:1.1;text-wrap:balance;margin:0;font-weight:700}
+h2{font-size:clamp(1.8rem,4.4vw,2.7rem);font-weight:800;letter-spacing:-.015em}
+h3{font-size:1.32rem}
+h4{font-size:1.05rem}
+p{margin:0 0 .9rem;max-width:68ch}
+a{color:var(--river)}
+.wrap{width:min(1100px,100% - 2rem);margin-inline:auto}
+.skip{position:absolute;left:-999px;top:.5rem;background:var(--ink);color:var(--paper);padding:.6rem 1rem;border-radius:8px;z-index:80}
+.skip:focus{left:.5rem}
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+svg{display:block}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* barra superior con fases */
+.bar{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--paper) 90%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:2px solid var(--ink)}
+.bar-in{display:flex;align-items:center;gap:.8rem;min-height:62px}
+.brand{display:flex;align-items:center;gap:.55rem;font:800 1.02rem var(--display);color:var(--ink);text-decoration:none;white-space:nowrap}
+.brand svg{width:34px;height:34px}
+.stepper{flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.stepper::-webkit-scrollbar{display:none}
+.stepper ol{display:flex;width:max-content;margin:0 auto;gap:.1rem;list-style:none;padding:.3rem .2rem}
+.stepper a{display:flex;align-items:center;gap:.55rem;min-height:46px;padding:0 .65rem;color:var(--ink);text-decoration:none;font-weight:700;font-size:.88rem;white-space:nowrap;border-radius:12px;transition:background .2s}
+.dia{width:28px;height:28px;flex:none;transform:rotate(45deg);display:grid;place-items:center;border:2px solid var(--ink);background:var(--surface);transition:background .3s,border-color .3s}
+.dia b{transform:rotate(-45deg);font:800 .8rem var(--display);line-height:1}
+.stepper a:hover{background:color-mix(in srgb,var(--fiber) 55%,transparent)}
+.stepper a[aria-current="step"]{background:var(--fiber);color:#17150F}
+.stepper a[aria-current="step"] .dia{background:var(--ink);color:var(--paper)}
+.stepper a[data-done="1"] .dia{background:var(--achiote);border-color:var(--achiote);color:var(--on-accent);animation:pop .45s}
+.bar-line{height:6px;background:var(--line)}
+.bar-line i{display:block;height:100%;width:0;background:repeating-linear-gradient(90deg,var(--achiote) 0 14px,var(--fiber) 14px 28px);transition:width .7s cubic-bezier(.2,.7,.2,1)}
+.a11y{position:relative}
+.a11y>summary{list-style:none;min-height:44px;display:flex;align-items:center;padding:0 .85rem;border:2px solid var(--ink);border-radius:10px;font-weight:700;cursor:pointer;white-space:nowrap;background:var(--surface)}
+.a11y>summary::-webkit-details-marker{display:none}
+.a11y-panel{position:absolute;right:0;top:calc(100% + .5rem);width:min(330px,calc(100vw - 2rem));background:var(--surface);border:2px solid var(--ink);border-radius:14px;padding:1rem;display:grid;gap:.6rem;box-shadow:6px 6px 0 var(--shc)}
+
+/* botones */
+.btn{min-height:46px;padding:.5rem 1.05rem;border:2px solid var(--ink);border-radius:12px;background:var(--surface);color:var(--ink);font:700 1rem var(--body);cursor:pointer;text-align:center;box-shadow:3px 3px 0 var(--shc);transition:transform .08s,box-shadow .08s,background .2s}
+.btn:hover{background:var(--fiber);color:#17150F}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--shc)}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.btn.primary{background:var(--achiote);border-color:var(--ink);color:var(--on-accent)}
+.btn.primary:hover{background:var(--achiote);filter:brightness(1.12);color:var(--on-accent)}
+.btn[disabled],.btn[aria-disabled="true"]{opacity:.5;cursor:not-allowed;box-shadow:none}
+a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.row{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
+
+/* cinta tejida */
+.band{height:30px;background-color:var(--tinta);background-image:var(--band,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='30'%3E%3Cpath d='M0 15L15 2L30 15L15 28Z' fill='%23D9BC8C'/%3E%3Cpath d='M30 15L45 2L60 15L45 28Z' fill='%237A4624'/%3E%3C/svg%3E"));background-repeat:repeat-x;background-position:center}
+
+/* portada */
+.hero{position:relative;isolation:isolate;overflow:hidden;background:var(--night);color:#F4EFE0;padding:3.2rem 0 3.6rem}
+.hero-bg{position:absolute;inset:0;z-index:-1;opacity:.9;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cpath d='M32 4L60 32L32 60L4 32Z' fill='none' stroke='%23D9C58E' stroke-opacity='.14' stroke-width='1.5'/%3E%3C/svg%3E");-webkit-mask-image:radial-gradient(circle at 75% 45%,#000 0,transparent 72%);mask-image:radial-gradient(circle at 75% 45%,#000 0,transparent 72%)}
+.hero-grid{display:grid;grid-template-columns:1.02fr .98fr;gap:2.2rem;align-items:center}
+.eyebrow{font:700 .78rem var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--fiber);margin:0 0 1rem}
+.hero h1{font-size:clamp(3.1rem,10.5vw,6.6rem);font-weight:800;letter-spacing:-.035em;line-height:.9;margin-bottom:1.2rem}
+.hero h1 .h1b{display:block;color:var(--fiber)}
+.hero .lead{font-size:1.25rem;color:#F4EFE0;max-width:46ch}
+.facts{display:flex;flex-wrap:wrap;gap:.5rem;list-style:none;padding:0;margin:1.2rem 0}
+.facts li{border:2px solid rgba(244,239,224,.35);border-radius:999px;padding:.3rem .95rem;font-weight:600;font-size:.95rem}
+.facts b{color:var(--fiber);font-family:var(--display);font-size:1.15rem;margin-right:.25rem}
+.byline{margin:1.3rem 0 1.5rem;padding-left:1rem;border-left:5px solid var(--achiote);font-size:.98rem;color:#E9E2CF}
+.byline strong{display:block;font-size:1.12rem;color:#F4EFE0}
+.hero .btn{box-shadow:3px 3px 0 rgba(0,0,0,.6)}
+.hero .btn.primary{border-color:#F4EFE0}
+.hero .btn.ghost{background:transparent;color:#F4EFE0;border-color:#F4EFE0}
+.hero .btn.ghost:hover{background:#F4EFE0;color:#14110C}
+.hero .btn.ghost[aria-pressed="true"]{background:var(--fiber);color:#14110C;border-color:var(--fiber)}
+.hero-art{position:relative;max-width:480px;width:100%;justify-self:center}
+.hero-art::before{content:"";position:absolute;inset:6%;z-index:-1;background:radial-gradient(circle,color-mix(in srgb,var(--achiote) 60%,transparent),transparent 66%);filter:blur(34px)}
+.tilt{transition:transform .25s ease-out;will-change:transform}
+.hero-art svg{width:100%;height:auto;filter:drop-shadow(0 18px 30px rgba(0,0,0,.55))}
+.caption{text-align:center;color:#E9E2CF;font-size:.95rem;margin:.9rem auto 0;min-height:1.5em}
+.ring{transform-box:view-box;transform-origin:200px 200px;animation:spin 90s linear infinite}
+.petals{transform-box:view-box;transform-origin:200px 200px;animation:spin 140s linear infinite reverse}
+.haxes line{stroke:#F2D58B;stroke-width:2.4;stroke-linecap:round;stroke-dasharray:420;stroke-dashoffset:420;opacity:0;transition:stroke-dashoffset .8s cubic-bezier(.2,.7,.2,1),opacity .3s;transition-delay:calc(var(--i)*70ms)}
+.show-ax .haxes line{stroke-dashoffset:0;opacity:.95}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pop{0%{transform:rotate(45deg) scale(.6)}60%{transform:rotate(45deg) scale(1.25)}100%{transform:rotate(45deg) scale(1)}}
+.pulse{fill:none;stroke:var(--achiote);stroke-width:5;transform-box:fill-box;transform-origin:center;animation:pulse 1.8s ease-out infinite}
+@keyframes pulse{0%{transform:scale(.85);opacity:.95}100%{transform:scale(1.7);opacity:0}}
+
+/* secciones */
+.sec{padding:3.6rem 0}
+.sec.alt{background:color-mix(in srgb,var(--fiber) 17%,var(--paper))}
+.sec-h{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.35rem 1.3rem;margin-bottom:1.8rem}
+.sec-h.nonum{display:flex;flex-wrap:wrap;align-items:center;gap:.8rem 1.2rem}
+.num{grid-row:span 2;font:800 clamp(3.8rem,11vw,6.8rem)/.85 var(--display);color:transparent;-webkit-text-stroke:2.5px var(--ink);letter-spacing:-.04em;padding-right:.1em}
+.sec-h .phase{justify-self:start;align-self:end}
+.sec-h h2{align-self:start}
+.sec-h .listen{grid-column:3;grid-row:1 / span 2}
+.sec-h.nonum .listen{grid-column:auto;grid-row:auto}
+.phase{font:800 .74rem var(--body);letter-spacing:.14em;text-transform:uppercase;padding:.36rem .8rem;border-radius:999px}
+.phase.ini{background:var(--river);color:var(--on-accent)}
+.phase.des{background:var(--achiote);color:var(--on-accent)}
+.phase.cie{background:var(--ink);color:var(--paper)}
+.rv{transform:translateY(18px);transition:transform .7s cubic-bezier(.2,.7,.2,1)}
+.rv.in{transform:none}
+
+.card{background:var(--surface);border:2px solid var(--ink);border-radius:18px;padding:1.4rem;box-shadow:6px 6px 0 var(--shc)}
+.card h3{margin-bottom:.6rem}
+.grid2{align-items:start;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:1.4rem}
+.note{font-size:.92rem;color:var(--muted)}
+.big-outcome{font:600 clamp(1.3rem,2.8vw,1.75rem)/1.35 var(--display);padding:1.5rem 1.6rem;border:2px solid var(--night);border-radius:18px;background:var(--night);color:#F4EFE0;margin-bottom:1.6rem;max-width:none;box-shadow:7px 7px 0 var(--achiote)}
+.checklist{list-style:none;margin:0;padding:0;display:grid;gap:.7rem}
+.checklist li{display:flex;gap:.75rem}
+.checklist li::before{content:"";flex:none;width:1.25rem;height:1.25rem;margin-top:.28rem;border:2px solid var(--ink);border-radius:5px;transform:rotate(45deg) scale(.85);transition:background .3s}
+.checklist li[data-ok="1"]::before{background:var(--good);border-color:var(--good)}
+
+/* explorar */
+.explore{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1.6rem;align-items:start}
+.art{width:100%;max-width:430px;justify-self:center}
+.hs{cursor:pointer}
+.hs *{pointer-events:all}
+.hs-btns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem;margin:.8rem 0}
+.info{min-height:7.5rem;border-left:6px solid var(--river);padding:.2rem 0 .2rem 1rem}
+.info h4{margin-bottom:.35rem}
+.radios{display:grid;gap:.55rem;margin:.6rem 0}
+.radios label,.opts label{display:flex;gap:.6rem;align-items:flex-start;padding:.65rem .85rem;border:2px solid var(--line);border-radius:12px;cursor:pointer;background:var(--surface);transition:border-color .2s,background .2s}
+.radios label:hover,.opts label:hover{border-color:var(--ink)}
+.radios input,.opts input{margin-top:.3rem;width:1.1rem;height:1.1rem;accent-color:var(--achiote);flex:none}
+.radios label:has(input:checked),.opts label:has(input:checked){border-color:var(--ink);background:var(--fiber);color:#17150F}
+.fb{margin-top:.7rem;padding:.75rem .95rem;border-radius:12px;border:2px solid currentColor;font-weight:600;animation:slide .35s ease-out}
+@keyframes slide{from{transform:translateY(6px)}to{transform:none}}
+.fb.ok{color:var(--good);background:var(--goodbg)}
+.fb.no{color:var(--bad);background:var(--badbg)}
+.fb.neutral{color:var(--ink);background:var(--surface);border-color:var(--line)}
+
+/* video */
+.video-card{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:1.5rem;align-items:center}
+.poster{background:var(--night);border-radius:16px;padding:1.1rem;display:grid;place-items:center;position:relative;overflow:hidden}
+.poster svg{width:100%;max-width:300px}
+.play{position:absolute;right:1rem;bottom:1rem;background:var(--achiote);color:var(--on-accent);border-radius:999px;padding:.4rem .95rem;font-weight:800;font-size:.9rem}
+details.tx{margin-top:1rem;border:2px solid var(--line);border-radius:14px;background:var(--surface)}
+details.tx>summary{cursor:pointer;padding:.7rem 1rem;font-weight:700;min-height:46px;display:flex;align-items:center}
+details.tx>div{padding:0 1rem .6rem}
+.vids{list-style:none;margin:0;padding:0;display:grid;gap:.7rem}
+.vids li{display:grid;gap:.1rem;padding:.75rem .95rem .75rem 2.7rem;border:2px solid var(--line);border-radius:12px;background:var(--surface);position:relative;transition:border-color .2s}
+.vids li:hover{border-color:var(--ink)}
+.vids li::before{content:"";position:absolute;left:1rem;top:1.05rem;border-left:.9rem solid var(--achiote);border-top:.55rem solid transparent;border-bottom:.55rem solid transparent}
+.vids a{font-weight:700;min-height:24px}
+.vids li.emb{padding-left:.95rem}
+.vids li.emb::before{display:none}
+.yt,.yt-face{width:100%;aspect-ratio:16/9;border:0;border-radius:12px;display:block;margin-bottom:.5rem}
+.yt-face{position:relative;padding:0;overflow:hidden;cursor:pointer;background:#000}
+.yt-face img{width:100%;height:100%;object-fit:cover;opacity:.9}
+.yt-play{position:absolute;inset:0;display:grid;place-items:center}
+.yt-play::before{content:"";width:68px;height:48px;border-radius:14px;background:var(--achiote)}
+.yt-play::after{content:"";position:absolute;border-left:20px solid #fff;border-top:12px solid transparent;border-bottom:12px solid transparent;margin-left:5px}
+.poster .yt-face{margin:0}
+
+/* pestañas */
+.tabs{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.1rem}
+.tab{min-height:46px;padding:.4rem 1.1rem;border:2px solid var(--ink);border-radius:999px;background:var(--surface);color:var(--ink);font:700 1rem var(--body);cursor:pointer;transition:background .2s}
+.tab:hover{background:var(--fiber);color:#17150F}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--paper)}
+.panel[hidden]{display:none}
+
+/* laboratorio */
+.chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:.55rem;margin:.7rem 0 1.1rem}
+.tbtn{display:flex;flex-direction:column;align-items:flex-start;gap:.15rem;min-height:58px;padding:.5rem .75rem;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:700 .95rem var(--body);cursor:pointer;text-align:left;transition:border-color .2s,background .3s,transform .1s}
+.tbtn:hover{border-color:var(--ink);transform:translateY(-2px)}
+.tbtn small{font-weight:700;font-size:.78rem;color:var(--muted)}
+.tbtn[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink)}
+.tbtn[data-st="ok"]{background:var(--goodbg)} .tbtn[data-st="ok"] small{color:var(--good)}
+.tbtn[data-st="no"]{background:var(--badbg)} .tbtn[data-st="no"] small{color:var(--bad)}
+.seg{display:flex;flex-wrap:wrap;gap:.5rem}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem}
+.pair figure{margin:0}
+.pair figcaption{font-weight:700;margin:.3rem 0;font-size:.95rem}
+.gsvg{width:100%;max-width:340px;border-radius:10px}
+.cA{fill:var(--tinta)} .cB{fill:var(--fiber)} .cR{fill:var(--achiote)}
+.cell-r{stroke:var(--surface);stroke-width:1}
+.mm{fill:none;stroke:var(--achiote);stroke-width:3.5;animation:blink .7s 2}
+@keyframes blink{50%{stroke-opacity:.2}}
+.mmx{stroke:var(--achiote);stroke-width:3;fill:none}
+.axis{stroke:var(--achiote);stroke-width:3;stroke-dasharray:7 5;fill:none}
+.axis-t{fill:var(--achiote);font:700 12px var(--body)}
+.tally{font:800 1.1rem var(--display)}
+.stroke-t{stroke:var(--tinta)}
+
+.range{display:flex;flex-wrap:wrap;gap:.6rem 1rem;align-items:center;margin:.7rem 0}
+.range input[type=range]{flex:1;min-width:180px;height:34px;accent-color:var(--achiote)}
+.out{font:800 1.15rem var(--display);min-width:5ch}
+.sel{min-height:46px;padding:.3rem .65rem;border:2px solid var(--ink);border-radius:12px;background:var(--surface);color:var(--ink);font:600 1rem var(--body)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.7rem;margin:.9rem 0}
+.kv div{border:2px solid var(--line);border-radius:12px;padding:.65rem .85rem;background:var(--surface)}
+.kv b{display:block;font:800 1.8rem var(--display);color:var(--achiote)}
+
+/* taller */
+.workshop{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:1.8rem;align-items:start}
+.wgrid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;background:var(--ink);padding:3px;border-radius:10px;width:100%;max-width:390px;box-shadow:6px 6px 0 var(--shc)}
+.wcell{aspect-ratio:1;min-width:0;border:0;border-radius:2px;background:var(--fiber);cursor:pointer;padding:0;transition:background .15s}
+.wcell[aria-pressed="true"]{background:var(--tinta)}
+.wcell.pop{animation:popc .28s}
+@keyframes popc{0%{transform:scale(.6)}60%{transform:scale(1.18)}100%{transform:none}}
+.tags{display:flex;flex-wrap:wrap;gap:.45rem;margin:.5rem 0}
+.tag{padding:.28rem .75rem;border-radius:999px;border:2px solid var(--good);color:var(--good);font-weight:700;font-size:.88rem;background:var(--goodbg);animation:slide .3s}
+.tag.none{border-color:var(--line);color:var(--muted);background:var(--surface)}
+textarea,input[type=text],input[type=number]{width:100%;font:400 1rem var(--body);padding:.65rem .75rem;border:2px solid var(--ink);border-radius:12px;background:var(--surface);color:var(--ink)}
+textarea{min-height:5.6rem;resize:vertical}
+label.f{display:block;font-weight:700;margin:.8rem 0 .3rem}
+.cloze{display:grid;gap:.95rem;padding-left:1.4rem;margin:0 0 1rem}
+.cloze li{max-width:68ch}
+.cloze .sel{margin:0 .2rem;min-height:42px}
+.rate{display:flex;flex-wrap:wrap;gap:.6rem;margin:.7rem 0}
+
+/* evaluación */
+.q{margin:0 0 1.1rem;padding:1.2rem;border:2px solid var(--line);border-radius:16px;background:var(--surface)}
+.q legend{font-weight:800;padding:0 .5rem;font-family:var(--display)}
+.q .qt{font-weight:600;margin-bottom:.7rem;max-width:68ch}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:.55rem;margin-bottom:.9rem}
+.qnum{width:7rem}
+
+/* constancia */
+.trophy{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:1.8rem;align-items:center}
+.lk [data-l]{opacity:.14;transition:opacity .9s}
+.lk [data-l].on{opacity:1}
+.trophy[data-full="1"]{background:var(--night);color:#F4EFE0;border-color:var(--night);box-shadow:7px 7px 0 var(--achiote)}
+.trophy[data-full="1"] .tally{color:var(--fiber)}
+.trophy[data-full="1"] .note{color:#E9E2CF}
+
+/* tablas */
+.tw{overflow-x:auto;border:2px solid var(--ink);border-radius:16px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{padding:.85rem 1rem;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{font:800 .82rem var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:color-mix(in srgb,var(--fiber) 22%,var(--surface))}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:700}
+
+/* avisos */
+#toast{position:fixed;left:50%;bottom:1.4rem;transform:translate(-50%,140%);background:var(--night);color:#F4EFE0;border:2px solid var(--fiber);border-radius:999px;padding:.7rem 1.3rem;font-weight:700;z-index:70;transition:transform .45s cubic-bezier(.2,.9,.3,1.2);max-width:calc(100vw - 2rem);text-align:center}
+#toast.on{transform:translate(-50%,0)}
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:60}
+
+footer{background:var(--night);color:#E9E2CF;font-size:.95rem}
+footer .wrap{padding:2rem 0 2.6rem;display:grid;gap:.5rem}
+footer a{color:var(--fiber)}
+
+/* gamificación */
+.hud{display:flex;align-items:center;gap:.4rem;font-weight:800;padding:.3rem .8rem;border:2px solid var(--ink);border-radius:999px;background:var(--night);color:#F4EFE0;white-space:nowrap;text-decoration:none;min-height:44px}
+.hud b{color:var(--fiber);font-family:var(--display)}
+.hud .st{color:var(--fiber)}
+.hud.bump{animation:bump .45s}
+@keyframes bump{40%{transform:scale(1.15)}}
+.lvlname{font:800 2rem/1 var(--display);margin:.2rem 0 .8rem;color:var(--achiote)}
+.xpbar{height:16px;border:2px solid var(--ink);border-radius:999px;overflow:hidden;background:var(--paper)}
+.xpbar i{display:block;height:100%;width:0;background:repeating-linear-gradient(90deg,var(--achiote) 0 14px,var(--fiber) 14px 28px);transition:width .7s cubic-bezier(.2,.7,.2,1)}
+.badges{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr));gap:1rem}
+.badge{display:grid;justify-items:center;text-align:center;gap:.25rem;padding:1rem .8rem;border:2px solid var(--line);border-radius:16px;background:var(--surface);transition:border-color .3s,transform .2s}
+.badge[data-on="1"]{border-color:var(--ink);box-shadow:4px 4px 0 var(--shc)}
+.medal{width:76px;height:76px;display:grid;place-items:center;background:var(--line);color:var(--muted);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);opacity:.75}
+.medal svg{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.badge[data-on="1"] .medal{background:var(--achiote);color:var(--on-accent);opacity:1;animation:popm .5s}
+@keyframes popm{0%{transform:scale(.5) rotate(-20deg)}70%{transform:scale(1.15)}100%{transform:none}}
+.badge b{font-family:var(--display)}
+.badge .st2{font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.badge[data-on="1"] .st2{color:var(--good)}
+.gstats{display:flex;flex-wrap:wrap;gap:.5rem;margin:.6rem 0}
+.gstats span{border:2px solid var(--line);border-radius:12px;padding:.3rem .7rem;background:var(--surface);font-weight:600}
+.gstats b{font:800 1.2rem var(--display);margin-left:.2rem}
+.gq{font:700 1.15rem var(--display);margin:.7rem 0}
+.chk{display:flex;gap:.5rem;align-items:center;margin:.3rem 0 .6rem;font-weight:600}
+.chk input{width:1.15rem;height:1.15rem;accent-color:var(--achiote)}
+.pal{display:flex;gap:.5rem;flex-wrap:wrap}
+@media (max-width:1360px){
+  .brand span{display:none}
+}
+@media (max-width:640px){.hud .lv{display:none}}
+@media (max-width:1480px){
+  .stepper .lbl{display:none}
+  .stepper a[aria-current="step"] .lbl{display:inline}
+}
+@media (max-width:780px){
+  .hero-grid,.explore,.video-card,.workshop,.trophy{grid-template-columns:1fr}
+  .brand span{display:none}
+  .sec-h{grid-template-columns:auto 1fr}
+  .sec-h .listen{grid-column:1 / -1;grid-row:auto;justify-self:start}
+  .hero{padding-top:2rem}
+  .hs-btns{grid-template-columns:1fr 1fr}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{animation:none!important;transition:none!important}
+  .rv{transform:none}
+}
+
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Saltar al contenido</a>
+
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="brand" href="#portada" aria-label="Tejiendo geometrías, ir al inicio"><svg id="logoSvg" role="presentation" aria-hidden="true"></svg><span>Tejiendo geometrías</span></a>
+    <nav class="stepper" aria-label="Fases del recurso">
+      <ol id="navList">
+        <li><a href="#movilizar" data-k="movilizar"><span class="dia"><b>1</b></span><span class="lbl">Movilizar</span></a></li>
+        <li><a href="#activar" data-k="activar"><span class="dia"><b>2</b></span><span class="lbl">Activar</span></a></li>
+        <li><a href="#explorar" data-k="explorar"><span class="dia"><b>3</b></span><span class="lbl">Explorar</span></a></li>
+        <li><a href="#estructurar" data-k="estructurar"><span class="dia"><b>4</b></span><span class="lbl">Estructurar</span></a></li>
+        <li><a href="#taller" data-k="aplicar"><span class="dia"><b>5</b></span><span class="lbl">Aplicar</span></a></li>
+        <li><a href="#concluir" data-k="concluir"><span class="dia"><b>6</b></span><span class="lbl">Concluir</span></a></li>
+      </ol>
+    </nav>
+    <a class="hud" href="#juego" aria-label="Tu puntaje: ir al tablero de juego"><span class="st" aria-hidden="true">★</span><b id="xp">0</b> XP <span class="lv" id="lvl">Aprendiz</span></a>
+    <details class="a11y" id="a11y">
+      <summary>Accesibilidad</summary>
+      <div class="a11y-panel" role="group" aria-label="Opciones de accesibilidad">
+        <div class="row">
+          <button class="btn" id="sizeDown" type="button" aria-label="Reducir tamaño del texto">A&minus;</button>
+          <button class="btn" id="sizeUp" type="button" aria-label="Aumentar tamaño del texto">A+</button>
+          <span class="note" id="sizeTxt">Texto normal</span>
+        </div>
+        <button class="btn" id="contrastBtn" type="button" aria-pressed="false">Alto contraste</button>
+        <button class="btn" id="soundBtn" type="button" aria-pressed="false">Sonidos de respuesta</button>
+        <p class="note" style="margin:0">Cada sección tiene un botón para escuchar su texto. Todo se puede usar con teclado.</p>
+      </div>
+    </details>
+  </div>
+  <div class="bar-line" aria-hidden="true"><i id="barFill"></i></div>
+  <progress id="prog" class="sr" max="6" value="0" aria-label="Avance"></progress>
+  <span id="progTxt" class="sr" role="status">Avance: 0 de 6 fases</span>
+</header>
+
+<main id="main">
+<noscript><div class="wrap"><p class="fb no">Este recurso necesita JavaScript activado para sus actividades interactivas.</p></div></noscript>
+
+<!-- PORTADA -->
+<section class="hero" id="portada" aria-labelledby="t-portada">
+  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow">Recurso educativo digital · Matemáticas · Grado 8°</p>
+      <h1 id="t-portada">Tejiendo <span class="h1b">geometrías</span></h1>
+      <p class="lead">Descubre cómo los diseños de la cestería se repiten, se reflejan y giran. Luego usa esas ideas para tejer un patrón propio.</p>
+      <ul class="facts" aria-label="Datos del recurso">
+        <li><b>6</b>fases</li><li><b>8</b>actividades interactivas</li><li><b>9</b>insignias</li><li><b>50</b>minutos</li>
+      </ul>
+      <div class="byline">
+        <strong>Cristian Orozco Vergara</strong>
+        Maestría en Diseño de Ambientes de Aprendizaje Innovadores<br>
+        Universidad Autónoma de Manizales · Para estudiantes de la ENOSIMAR, Mitú (Vaupés)
+      </div>
+      <div class="row">
+        <a class="btn primary" href="#movilizar">Empezar el recorrido</a>
+        <button class="btn ghost" id="axesBtn" type="button" aria-pressed="false">Mostrar los ejes del balay</button>
+      </div>
+    </div>
+    <div class="hero-art">
+      <div class="tilt" id="tilt">
+        <svg id="heroSvg" role="img" aria-labelledby="heroT heroD"><title id="heroT">Balay con ocho florecitas</title><desc id="heroD">Diseño circular con un octágono en el centro, ocho florecitas en forma de rombo alrededor y un anillo de triángulos que alternan color.</desc></svg>
+      </div>
+      <p class="caption" id="axesTxt" aria-live="polite">Pasa el cursor por encima o toca el botón para ver sus ejes.</p>
+    </div>
+  </div>
+</section>
+<div class="band" role="presentation"></div>
+
+<!-- RESULTADO -->
+<section class="sec" id="movilizar" aria-labelledby="t-res">
+  <div class="wrap">
+    <div class="sec-h">
+      <span class="num" aria-hidden="true">01</span>
+      <span class="phase ini">Fase 1 · Movilizar</span>
+      <h2 id="t-res">Qué vas a lograr y para qué</h2>
+      <button class="btn listen" type="button" data-listen="movilizar">Escuchar sección</button>
+    </div>
+    <p class="big-outcome">Al terminar podrás reconocer espejos, giros y traslaciones en patrones de cestería, describirlos con palabras matemáticas y diseñar un patrón propio con al menos dos simetrías.</p>
+    <div class="grid2">
+      <div class="card">
+        <h3>Lo sabrás porque…</h3>
+        <ul class="checklist">
+          <li>Reconoces tres tipos de transformación en un patrón: espejo, giro y traslación.</li>
+          <li>Calculas el ángulo central y el ángulo interior de un polígono regular.</li>
+          <li>Diseñas un patrón con al menos dos simetrías y explicas cuáles son.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Por qué y para qué</h3>
+        <p>En grado 8° cuesta identificar simetrías, transformaciones, ángulos y polígonos regulares. En el primer periodo de 2026 el promedio del grupo en Geometría fue 3,34. Aquí la geometría parte de algo que ya conoces: el canasto y el balay. Sirve para que puedas leer y crear patrones con palabras matemáticas, y para diseñar tu objeto de cestería con los artesanos.</p>
+        <p class="note">Se usa después de observar los diseños en el territorio y antes de diseñar tu objeto de cestería con los artesanos. Dura cerca de 50 minutos. Una vez abierta la página no necesita internet.</p>
+      </div>
+    </div>
+    <div class="card" style="margin-top:1rem">
+      <h3>Tu meta: marca tu punto de partida</h3>
+      <p id="preQ">¿Cuánto sabes hoy de simetrías, giros y traslaciones?</p>
+      <div class="rate" id="preRate" role="group" aria-labelledby="preQ"></div>
+    </div>
+    <p class="note" style="margin-top:1rem">Los patrones de este recurso son diseños didácticos. No copian diseños de ninguna comunidad. Los nombres de los diseños y su significado los enseñan los artesanos y los mayores.</p>
+  </div>
+</section>
+<div class="band" role="presentation"></div>
+
+<!-- INICIO -->
+<section class="sec alt" id="activar" aria-labelledby="t-ini">
+  <div class="wrap">
+    <div class="sec-h">
+      <span class="num" aria-hidden="true">02</span>
+      <span class="phase ini">Fase 2 · Activar</span>
+      <h2 id="t-ini">Mira antes de calcular</h2>
+      <button class="btn listen" type="button" data-listen="activar">Escuchar sección</button>
+    </div>
+    <p>Conecta con lo que ya sabes de canastos y balays. Observa este balay. Toca cada parte del dibujo, o usa los botones, y lee qué hay de matemática en ella.</p>
+    <div class="explore">
+      <svg id="exSvg" class="art" role="img" aria-labelledby="exT"><title id="exT">Balay para explorar</title></svg>
+      <div>
+        <div class="hs-btns" id="hsBtns" role="group" aria-label="Partes del balay"></div>
+        <div class="info" id="hsInfo" aria-live="polite"><h4>Elige una parte</h4><p>Toca el centro, una florecita, el anillo de triángulos o el eje de espejo.</p></div>
+        <p class="note" id="hsCount">Partes exploradas: 0 de 4</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1.4rem">
+      <h3>Tu hipótesis</h3>
+      <fieldset style="border:0;padding:0;margin:0">
+        <legend style="font-weight:600">Si doblas el balay por una recta que pasa por el centro, ¿qué esperas?</legend>
+        <div class="radios" id="hyp">
+          <label><input type="radio" name="hyp" value="a"> Las dos mitades siempre coinciden, sin importar por dónde doble.</label>
+          <label><input type="radio" name="hyp" value="b"> Las dos mitades nunca coinciden.</label>
+          <label><input type="radio" name="hyp" value="c"> Solo coinciden si doblo por ciertas rectas.</label>
+        </div>
+      </fieldset>
+      <div id="hypFb" role="status"></div>
+    </div>
+  </div>
+</section>
+<div class="band" role="presentation"></div>
+
+<!-- EXPLORAR -->
+<section class="sec" id="explorar" aria-labelledby="t-exp">
+  <div class="wrap">
+    <div class="sec-h">
+      <span class="num" aria-hidden="true">03</span>
+      <span class="phase des">Fase 3 · Explorar</span>
+      <h2 id="t-exp">Vive la experiencia: espejos y giros</h2>
+      <button class="btn listen" type="button" data-listen="explorar">Escuchar sección</button>
+    </div>
+    <p>Primero mira un balay real en el video. Luego participa: prueba cada transformación en el laboratorio y descubre qué patrones las aceptan.</p>
+    <div class="card" id="video" style="margin-bottom:1.4rem">
+      <h3>Video: la geometría de mi canasto</h3>
+      <div class="video-card">
+        <div class="poster" aria-hidden="true">
+          <svg id="posterSvg"></svg>
+          <span class="play">Video</span>
+        </div>
+        <div>
+          <p id="videoDesc">En este video, el autor muestra un balay real y señala el centro, una florecita, un eje de espejo y la cinta del borde. Míralo antes de usar el laboratorio.</p>
+          <div class="row">
+            <a class="btn primary" id="videoLink" href="#video" aria-disabled="true">Ver el video (se abre aparte)</a>
+          </div>
+          <p class="note" id="videoNote">El enlace del video se añade al publicar el recurso.</p>
+        </div>
+      </div>
+      <details class="tx">
+        <summary>Transcripción del video</summary>
+        <div>
+          <p>Hola, soy Cristian Orozco. Este recurso es para estudiantes de grado octavo de la ENOSIMAR, en Mitú.</p>
+          <p>Hoy te muestro la geometría que ya conoces de tu casa. Tengo aquí un balay. [Imagen: el balay visto desde arriba.] Mira el centro: es una figura de lados iguales, un polígono regular.</p>
+          <p>Ahora mira una florecita. Si giro el balay un poco, la siguiente florecita queda justo en su lugar. Eso es una simetría de giro. [Imagen: se marca una florecita y se gira el balay.]</p>
+          <p>Si pongo un espejo pequeño sobre una línea que pasa por el centro, la imagen se ve completa. Esa línea es un eje de simetría. [Imagen: espejo sobre el balay.]</p>
+          <p>En la cinta del borde, el mismo dibujo se repite cuando lo deslizo. Eso es una traslación. [Imagen: la mano desliza una cinta de papel sobre el borde.]</p>
+          <p>Antes de seguir, pregunta a un mayor o a un artesano cómo llaman a estos diseños en tu lengua, y anótalo. Ahora vamos al laboratorio.</p>
+        </div>
+      </details>
+    </div>
+
+    
+    <!-- Laboratorio -->
+    <div class="card" style="margin-top:1.2rem">
+      <h3>Videos para ver más</h3>
+      <p class="note">Videos de YouTube que se reproducen aquí mismo. Su contenido es de sus autores.</p>
+      <h4 style="margin:.8rem 0 .4rem">Cestería y saberes de la Amazonía</h4>
+      <ul class="vids"><li><a href="https://www.youtube.com/watch?v=Ovsd0UXArkU" target="_blank" rel="noopener">Los saberes de la gente del río Amazonas<span class="sr"> (se abre en YouTube, en otra pestaña)</span></a><span class="note">Cómo se fabrican canastos tejidos en la Amazonía.</span></li></ul>
+      <h4 style="margin:1rem 0 .4rem">Simetrías, giros y traslaciones</h4>
+      <ul class="vids"><li><a href="https://www.youtube.com/watch?v=-MYt7KNDTCg" target="_blank" rel="noopener">Matemáticas 2 de secundaria: traslación, rotación, simetría<span class="sr"> (se abre en YouTube, en otra pestaña)</span></a><span class="note">Video de la Red Edusat (ILCE) con los tres movimientos.</span></li><li><a href="https://www.youtube.com/watch?v=Z8FWFvfNcsY" target="_blank" rel="noopener">Simetría axial y central para principiantes<span class="sr"> (se abre en YouTube, en otra pestaña)</span></a><span class="note">Explicación corta de Daniel Carreón sobre reflexión y simetría central.</span></li><li><a href="https://www.youtube.com/watch?v=yyxhRUW5Ehk" target="_blank" rel="noopener">Simetría axial, central, rotación y traslación en mandalas<span class="sr"> (se abre en YouTube, en otra pestaña)</span></a><span class="note">Identifica las transformaciones en diseños circulares, parecidos al balay.</span></li></ul>
+    </div>
+    <div class="card" id="p-lab">
+      <h3>Laboratorio de simetrías</h3>
+      <p>Elige un patrón y prueba cada transformación. Si el patrón transformado queda igual al original, esa transformación es una simetría. Las celdas que no coinciden se marcan con rojo y una cruz.</p>
+      <div class="seg" role="group" aria-label="Patrón" id="patSeg"></div>
+      <div class="pair" style="margin-top:1rem">
+        <figure><figcaption>Patrón original</figcaption><svg id="svgOrig" class="gsvg" role="img" aria-label="Patrón original"></svg></figure>
+        <figure><figcaption id="capTr">Patrón transformado</figcaption><svg id="svgTr" class="gsvg" role="img" aria-label="Patrón transformado"></svg></figure>
+      </div>
+      <div class="chips" id="tBtns" role="group" aria-label="Transformaciones"></div>
+      <div id="labFb" class="fb neutral" role="status">Elige una transformación para comprobarla.</div>
+      <p class="tally" id="tally" style="margin-top:.8rem"></p>
+      <details class="tx"><summary>Ver el patrón como texto</summary><div><pre id="patTxt" style="font:600 1.1rem/1.3 monospace;margin:.5rem 0"></pre><p class="note">Cada fila usa ■ para celda oscura y □ para celda clara.</p></div></details>
+    </div>
+
+    
+    <div class="card" style="margin-top:1.2rem">
+      <h3>Para cerrar esta fase</h3>
+      <ul class="checklist"><li id="liT">Probaste 5 transformaciones en los patrones (<span id="cT">0</span> de 5).</li></ul>
+    </div>
+  </div>
+</section>
+<div class="band" role="presentation"></div>
+
+<!-- ESTRUCTURAR -->
+<section class="sec alt" id="estructurar" aria-labelledby="t-est">
+  <div class="wrap">
+    <div class="sec-h">
+      <span class="num" aria-hidden="true">04</span>
+      <span class="phase des">Fase 4 · Estructurar</span>
+      <h2 id="t-est">Ordena lo que descubriste</h2>
+      <button class="btn listen" type="button" data-listen="estructurar">Escuchar sección</button>
+    </div>
+    <p>Ahora analiza y sintetiza. Estudia la traslación y los polígonos regulares, y luego escribe con palabras matemáticas lo que ya descubriste.</p>
+    <div class="tabs" role="tablist" aria-label="Conceptos">
+      <button class="tab" role="tab" id="tab-tra" aria-controls="p-tra" aria-selected="true" type="button">Traslación</button>
+      <button class="tab" role="tab" id="tab-pol" aria-controls="p-pol" aria-selected="false" tabindex="-1" type="button">Polígonos y ángulos</button>
+    </div>
+    <!-- Traslación -->
+    <div class="card panel" id="p-tra" role="tabpanel" aria-labelledby="tab-tra">
+      <h3>Traslación: deslizar sin girar</h3>
+      <p>La fila de abajo es una copia de la cinta que puedes deslizar. Muévela y mira cuándo cada rombo cae sobre uno igual.</p>
+      <div class="range">
+        <label for="kind" style="font-weight:600">Cinta</label>
+        <select class="sel" id="kind">
+          <option value="a">Rombos iguales</option>
+          <option value="b">Dos colores alternados</option>
+          <option value="c">Tres colores en ciclo</option>
+        </select>
+      </div>
+      <svg id="stripSvg" role="img" aria-label="Cinta de rombos y su copia deslizada" style="width:100%;max-width:640px"></svg>
+      <div class="range">
+        <label for="tRange" style="font-weight:600">Desplazamiento</label>
+        <input id="tRange" type="range" min="0" max="6" step="0.5" value="0">
+        <span class="out" id="tOut">0 celdas</span>
+      </div>
+      <div id="traFb" class="fb neutral" role="status">Mueve el control deslizante.</div>
+    </div>
+
+    <!-- Polígonos -->
+    <div class="card panel" id="p-pol" role="tabpanel" aria-labelledby="tab-pol" hidden>
+      <h3>Giros, polígonos regulares y ángulos</h3>
+      <p>Una florecita se repite al girar siempre el mismo ángulo. Ese ángulo es el ángulo central del polígono regular. Añade florecitas una por una y mira cuántas caben en la vuelta completa.</p>
+      <div class="range">
+        <label for="nRange" style="font-weight:600">Número de lados</label>
+        <input id="nRange" type="range" min="3" max="12" step="1" value="8">
+        <span class="out" id="nOut">8</span>
+      </div>
+      <div class="explore">
+        <svg id="polySvg" class="art" role="img" aria-label="Polígono regular con florecitas"></svg>
+        <div>
+          <div class="kv" aria-live="polite">
+            <div><b id="kvCen">45°</b>Ángulo central (360° ÷ n)</div>
+            <div><b id="kvInt">135°</b>Ángulo interior ((n − 2) · 180° ÷ n)</div>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="addPetal" type="button">Girar y añadir florecita</button>
+            <button class="btn" id="resetPetal" type="button">Reiniciar</button>
+            <button class="btn" id="playPetal" type="button" aria-pressed="false">Reproducir</button>
+          </div>
+          <div id="polFb" class="fb neutral" role="status" style="margin-top:.8rem">Aún no hay florecitas.</div>
+        </div>
+      </div>
+    </div>
+
+    
+    <div class="card" style="margin-top:1.2rem">
+      <h3>Videos de apoyo: ángulos de un polígono regular</h3>
+      <p class="note">Enlaces a YouTube que se abren aparte.</p>
+      <ul class="vids"><li><a href="https://www.youtube.com/watch?v=JdGZHXscLt4" target="_blank" rel="noopener">Ángulo central y ángulo interior<span class="sr"> (se abre en YouTube, en otra pestaña)</span></a><span class="note">Usa las fórmulas 360° ÷ n y (n − 2) · 180° ÷ n.</span></li><li><a href="https://www.youtube.com/watch?v=kGvmXHd7Ba8" target="_blank" rel="noopener">Polígonos regulares<span class="sr"> (se abre en YouTube, en otra pestaña)</span></a><span class="note">Repasa el cálculo de ángulos internos y centrales.</span></li></ul>
+    </div>
+    <div class="card" style="margin-top:1.2rem">
+      <h3>Sintetiza lo que descubriste</h3>
+      <p>Elige la palabra que completa cada frase.</p>
+      <ol class="cloze" id="cloze">
+        <li>Una simetría <select class="sel" aria-label="Frase 1" data-ok="axial"><option value="">elige…</option><option value="rotacional">rotacional</option><option value="axial">axial</option><option value="traslacion">de traslación</option></select> tiene un eje de espejo.</li>
+        <li>En una simetría <select class="sel" aria-label="Frase 2" data-ok="rotacional"><option value="">elige…</option><option value="rotacional">rotacional</option><option value="axial">axial</option><option value="traslacion">de traslación</option></select> hay un centro y un ángulo de giro.</li>
+        <li>Si deslizas una cinta sin girarla y sin reflejarla haces una <select class="sel" aria-label="Frase 3" data-ok="traslacion"><option value="">elige…</option><option value="traslacion">traslación</option><option value="rotacion">rotación</option><option value="reflexion">reflexión</option></select>.</li>
+        <li>El ángulo central de un polígono regular de n lados mide <select class="sel" aria-label="Frase 4" data-ok="central"><option value="">elige…</option><option value="interior">(n − 2) · 180° ÷ n</option><option value="mitad">180° ÷ n</option><option value="central">360° ÷ n</option></select>.</li>
+      </ol>
+      <button class="btn primary" id="clozeBtn" type="button">Comprobar síntesis</button>
+      <div id="clozeFb" role="status" style="margin-top:.7rem"></div>
+    </div>
+    <div class="card" style="margin-top:1.2rem">
+      <h3>Para cerrar esta fase</h3>
+      <ul class="checklist">
+        <li id="liS">Moviste la cinta de traslación.</li>
+        <li id="liP">Completaste la vuelta del balay con florecitas.</li>
+        <li id="liC">Completaste la síntesis sin errores.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+<div class="band" role="presentation"></div>
+
+<!-- TALLER -->
+<section class="sec" id="taller" aria-labelledby="t-tal">
+  <div class="wrap">
+    <div class="sec-h">
+      <span class="num" aria-hidden="true">05</span>
+      <span class="phase cie">Fase 5 · Aplicar</span>
+      <h2 id="t-tal">Taller: teje tu patrón</h2>
+      <button class="btn listen" type="button" data-listen="taller">Escuchar sección</button>
+    </div>
+    <p><strong>Reto:</strong> diseña un patrón con al menos dos simetrías. Elige cómo se refleja cada celda que pintas y la página te dice qué simetrías tiene tu diseño.</p>
+    <div class="workshop">
+      <div>
+        <div class="wgrid" id="wgrid" role="group" aria-label="Cuadrícula de 8 por 8 para tejer"></div>
+        <div class="row" style="margin-top:.8rem">
+          <button class="btn" id="wClear" type="button">Limpiar</button>
+          <button class="btn" id="wExample" type="button">Cargar ejemplo</button>
+        </div>
+      </div>
+      <div>
+        <label class="f" for="wMode" style="margin-top:0">Al pintar una celda, se copia como…</label>
+        <select class="sel" id="wMode">
+          <option value="none">Sin simetría (solo esa celda)</option>
+          <option value="v" selected>Espejo vertical</option>
+          <option value="h">Espejo horizontal</option>
+          <option value="vh">Dos espejos (vertical y horizontal)</option>
+          <option value="r180">Giro de 180°</option>
+          <option value="r90">Giro de 90°</option>
+          <option value="d4">Espejos y giros de 90°</option>
+        </select>
+        <h4 style="margin-top:1rem">Simetrías de tu diseño</h4>
+        <div class="tags" id="wTags" aria-live="polite"></div>
+        <div id="wFb" class="fb neutral" role="status"></div>
+        <h4 style="margin-top:1rem">Así se vería como cinta (traslación)</h4>
+        <svg id="wTile" role="img" aria-label="Tu diseño repetido tres veces en una cinta" style="width:100%;max-width:480px"></svg>
+        <label class="f" for="wName">Nombre de tu patrón (en tu lengua o en español)</label>
+        <input type="text" id="wName" maxlength="60" placeholder="Escribe el nombre que le pondrías">
+        <div class="row" style="margin-top:.7rem">
+          <button class="btn" id="wCopy" type="button">Copiar descripción de mi diseño</button>
+        </div>
+        <p class="note" id="wCopyFb" role="status"></p>
+        <textarea id="wCopyTxt" readonly hidden aria-label="Descripción para copiar manualmente"></textarea>
+        <details class="tx"><summary>Ver mi diseño como texto</summary><div><pre id="wTxt" style="font:600 1.1rem/1.3 monospace;margin:.5rem 0"></pre></div></details>
+      </div>
+    </div>
+  </div>
+</section>
+<div class="band" role="presentation"></div>
+
+<!-- EVALUACIÓN -->
+<section class="sec alt" id="evaluacion" aria-labelledby="t-eva">
+  <div class="wrap">
+    <div class="sec-h">
+      <span class="num" aria-hidden="true">05</span>
+      <span class="phase cie">Fase 5 · Comprobar</span>
+      <h2 id="t-eva">Comprueba lo que aprendiste</h2>
+      <button class="btn listen" type="button" data-listen="evaluacion">Escuchar sección</button>
+    </div>
+    <p>Cinco preguntas. Responde y pulsa Comprobar: verás de inmediato si acertaste y por qué. Puedes repetir.</p>
+    <form id="quiz" onsubmit="return false"></form>
+    <div id="quizEnd" class="fb neutral" role="status" hidden></div>
+    <button class="btn" id="quizRetry" type="button" hidden style="margin-top:.8rem">Intentar de nuevo</button>
+  </div>
+</section>
+<div class="band" role="presentation"></div>
+
+<!-- JUEGO -->
+<section class="sec" id="juego" aria-labelledby="t-jue">
+  <div class="wrap">
+    <div class="sec-h">
+      <span class="num" aria-hidden="true">XP</span>
+      <span class="phase des">Bonus · Juego</span>
+      <h2 id="t-jue">Tablero de juego</h2>
+      <button class="btn listen" type="button" data-listen="juego">Escuchar sección</button>
+    </div>
+    <p>Cada actividad suma puntos. Sube de nivel, gana insignias y mide tu rapidez en el reto relámpago. Es opcional y no cambia tu avance de fases.</p>
+    <div class="grid2">
+      <div class="card">
+        <h3>Tu nivel</h3>
+        <p class="lvlname" id="lvlBig">Aprendiz</p>
+        <div class="xpbar" role="img" id="xpBar" aria-label="Progreso hacia el siguiente nivel"><i id="xpFill"></i></div>
+        <p class="note" id="xpNext" style="margin-top:.6rem">0 XP</p>
+        <details class="tx"><summary>Cómo ganar puntos</summary><div>
+          <ul>
+            <li>Tocar cada parte del balay: 5 XP.</li>
+            <li>Responder la hipótesis: 10 XP.</li>
+            <li>Probar cada transformación en un patrón: 5 XP.</li>
+            <li>Encontrar una traslación que coincide en cada cinta: 10 XP.</li>
+            <li>Completar la vuelta del balay: 20 XP. Completar la síntesis: 30 XP.</li>
+            <li>Cumplir el reto del taller: 50 XP.</li>
+            <li>Cada respuesta correcta de la evaluación: 20 XP.</li>
+            <li>Marcar tu nivel inicial y final: 5 XP cada uno. Escribir tu reflexión: 20 XP.</li>
+            <li>Completar una fase: 50 XP. Cada insignia: 25 XP.</li>
+            <li>Reto relámpago: hasta 100 XP por partida, 150 XP en total.</li>
+          </ul>
+        </div></details>
+      </div>
+      <div class="card" id="game">
+        <h3>Reto relámpago: ¿queda igual?</h3>
+        <p>Mira el patrón y decide si queda igual con la transformación que te piden. Los aciertos seguidos dan más puntos.</p>
+        <label class="chk"><input type="checkbox" id="gNoTime"> Jugar sin tiempo (10 preguntas)</label>
+        <div class="gstats"><span>Tiempo<b id="gTime">45</b></span><span>Puntos<b id="gScore">0</b></span><span>Racha<b id="gStreak">0</b></span><span>Mejor<b id="gBest">0</b></span></div>
+        <div id="gPlay" hidden>
+          <svg id="gSvg" class="gsvg" role="img" aria-label="Patrón del reto"></svg>
+          <p class="gq" id="gQ"></p>
+          <div class="row"><button class="btn primary" id="gYes" type="button">Sí, queda igual</button><button class="btn" id="gNo" type="button">No queda igual</button></div>
+          <div id="gFb" role="status"></div>
+        </div>
+        <div class="row" style="margin-top:.8rem"><button class="btn primary" id="gStart" type="button">Jugar</button></div>
+        <p id="gEnd" role="status" style="margin-top:.7rem;font-weight:700"></p>
+      </div>
+    </div>
+    <h3 style="margin:2rem 0 1rem">Insignias</h3>
+    <ul class="badges" id="badges"></ul>
+  </div>
+</section>
+<div class="band" role="presentation"></div>
+
+<!-- CIERRE -->
+<section class="sec" id="concluir" aria-labelledby="t-cie">
+  <div class="wrap">
+    <div class="sec-h">
+      <span class="num" aria-hidden="true">06</span>
+      <span class="phase cie">Fase 6 · Concluir</span>
+      <h2 id="t-cie">Concluye y devuelve lo aprendido al territorio</h2>
+      <button class="btn listen" type="button" data-listen="concluir">Escuchar sección</button>
+    </div>
+    <div class="card" style="margin-bottom:1rem">
+      <h3>Revisa tu proceso: marca tu punto de llegada</h3>
+      <p id="postQ">¿Cuánto sabes ahora de simetrías, giros y traslaciones?</p>
+      <div class="rate" id="postRate" role="group" aria-labelledby="postQ"></div>
+      <div id="rateFb" role="status"></div>
+    </div>
+    <p>La cestería no empezó en este recurso: la enseñan los mayores y los artesanos. Escribe tus respuestas con tus palabras y compártelas con quien te enseñó.</p>
+    <div class="card">
+      <label class="f" for="r1" style="margin-top:0">¿Qué simetría encontraste en un canasto, un balay u otro objeto de tu casa o tu comunidad?</label>
+      <textarea id="r1"></textarea>
+      <label class="f" for="r2">¿Qué te enseñó un artesano o un mayor que no está en este recurso?</label>
+      <textarea id="r2"></textarea>
+      <label class="f" for="r3">¿Por qué vale la pena aprender matemáticas desde lo propio?</label>
+      <textarea id="r3"></textarea>
+      <div class="row" style="margin-top:.8rem">
+        <button class="btn" id="rCopy" type="button">Copiar mis respuestas</button>
+        <span class="note" id="rFb" role="status"></span>
+      </div>
+      <textarea id="rCopyTxt" readonly hidden aria-label="Respuestas para copiar manualmente" style="margin-top:.6rem"></textarea>
+      <p class="note">Tus respuestas se guardan solo en este dispositivo, si el navegador lo permite.</p>
+    </div>
+    <div class="card trophy" id="trophy" data-full="0" style="margin-top:1.6rem">
+      <svg id="trophySvg" class="art" role="img" aria-label="Tu balay: cada fase completada colorea una capa"></svg>
+      <div>
+        <h3>Tu balay se teje con tu avance</h3>
+        <p id="trophyTxt">Cada fase que completas colorea una capa del balay. Completa las seis para recibir tu constancia.</p>
+        <p class="tally" id="trophyCount">0 de 6 capas tejidas</p>
+        <label class="f" for="certName">Tu nombre</label>
+        <input type="text" id="certName" maxlength="80" autocomplete="name">
+        <div class="row" style="margin-top:.8rem"><button class="btn primary" id="certBtn" type="button" disabled>Copiar mi constancia</button></div>
+        <p class="note" id="certFb" role="status" style="margin-top:.6rem"></p>
+        <textarea id="certTxt" readonly hidden aria-label="Constancia para copiar manualmente"></textarea>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<footer>
+  <div class="band" role="presentation"></div>
+  <div class="wrap">
+    <strong>Tejiendo geometrías</strong>
+    <span>Cristian Orozco Vergara · Maestría en Diseño de Ambientes de Aprendizaje Innovadores, Universidad Autónoma de Manizales · 2026</span>
+  </div>
+</footer>
+<div id="toast" role="status" aria-live="polite"></div>
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<script>
+(function(){
+'use strict';
+/* ====== Configuración del autor ====== */
+var EMBED = true; // true en la versión para GitHub Pages: reproduce YouTube dentro de la página
+var VIDEO_URL = '';
+var SUPPORT_URL = 'https://www.youtube.com/watch?v=gl_9GY_fwek'; // Video de apoyo mientras no hay video propio // Pega aquí el enlace del video propio (YouTube, Drive, etc.)
+
+/* ====== Utilidades ====== */
+var $=function(s,r){return (r||document).querySelector(s)};
+var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+var NS='http://www.w3.org/2000/svg';
+function el(name,attrs,parent){var e=document.createElementNS(NS,name);for(var k in attrs){e.setAttribute(k,attrs[k]);}if(parent)parent.appendChild(e);return e;}
+var store={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},set:function(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+var reduceMotion=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function fmt(x){return Number(x).toLocaleString('es-CO',{maximumFractionDigits:1});}
+
+/* ====== Motor de simetrías (matrices N×N de 0/1) ====== */
+var N=8;
+function mk(f){var M=[];for(var i=0;i<N;i++){var r=[];for(var j=0;j<N;j++)r.push(f(i,j));M.push(r);}return M;}
+var TR={
+  reflV:{label:'Espejo vertical',kind:'refl',f:function(M,i,j){return M[i][N-1-j]},ok:'La recta vertical que pasa por el centro es un eje de simetría.'},
+  reflH:{label:'Espejo horizontal',kind:'refl',f:function(M,i,j){return M[N-1-i][j]},ok:'La recta horizontal que pasa por el centro es un eje de simetría.'},
+  reflD1:{label:'Espejo en diagonal ↘',kind:'refl',f:function(M,i,j){return M[j][i]},ok:'La diagonal que baja hacia la derecha es un eje de simetría.'},
+  reflD2:{label:'Espejo en diagonal ↗',kind:'refl',f:function(M,i,j){return M[N-1-j][N-1-i]},ok:'La diagonal que sube hacia la derecha es un eje de simetría.'},
+  rot90:{label:'Giro de 90°',kind:'rot',deg:90,f:function(M,i,j){return M[N-1-j][i]},ok:'El patrón coincide al girarlo 90° alrededor del centro.'},
+  rot180:{label:'Giro de 180°',kind:'rot',deg:180,f:function(M,i,j){return M[N-1-i][N-1-j]},ok:'El patrón coincide al girarlo 180° alrededor del centro.'},
+  rot270:{label:'Giro de 270°',kind:'rot',deg:270,f:function(M,i,j){return M[j][N-1-i]},ok:'El patrón coincide al girarlo 270° alrededor del centro.'}
+};
+var KEYS=['reflV','reflH','reflD1','reflD2','rot90','rot180','rot270'];
+function apply(M,key){return mk(function(i,j){return TR[key].f(M,i,j)});}
+function diff(M,X){var d=[];for(var i=0;i<N;i++)for(var j=0;j<N;j++)if(M[i][j]!==X[i][j])d.push([i,j]);return d;}
+function invariants(M){return KEYS.filter(function(k){return diff(M,apply(M,k)).length===0});}
+function copy(M){return M.map(function(r){return r.slice()});}
+function transpose(M){return mk(function(i,j){return M[j][i]});}
+
+var PA=(function(){var Q=[[0,0,1,1],[0,1,0,1],[1,0,1,0],[1,1,0,1]];return mk(function(i,j){return Q[Math.min(i,N-1-i)][Math.min(j,N-1-j)]});})();
+var PB=(function(){var L=[[1,1,0,0],[0,1,0,1],[0,0,1,1],[1,0,1,0],[1,1,1,0],[0,0,0,1],[0,1,0,0],[1,0,0,1]];return mk(function(i,j){return L[i][Math.min(j,N-1-j)]});})();
+var PC=(function(){var Q=[[1,1,0,0],[0,1,0,1],[0,0,1,0],[1,0,0,0]];
+  return mk(function(i,j){
+    if(i<4&&j<4)return Q[i][j];
+    if(i<4&&j>=4){var a=i,b=j-4;return Q[3-b][a];}
+    if(i>=4&&j>=4){var a2=i-4,b2=j-4;return Q[3-a2][3-b2];}
+    var a3=i-4,b3=j;return Q[b3][3-a3];
+  });})();
+var PD=transpose(PB);
+var PATS={A:{name:'Patrón A',M:PA},B:{name:'Patrón B',M:PB},C:{name:'Patrón C',M:PC}};
+
+function asText(M){return M.map(function(r){return r.map(function(v){return v?'■':'□'}).join(' ')}).join('\n');}
+function listNames(keys){return keys.map(function(k){return TR[k].label}).join(', ');}
+
+/* ====== Dibujo de cuadrículas ====== */
+function drawGrid(svg,M,o){
+  o=o||{};var cell=o.cell||30,pad=o.pad===undefined?10:o.pad,n=M.length,size=n*cell+pad*2;
+  svg.setAttribute('viewBox','0 0 '+size+' '+size);svg.textContent='';
+  var g=el('g',{},svg);
+  for(var i=0;i<n;i++)for(var j=0;j<n;j++)el('rect',{x:pad+j*cell,y:pad+i*cell,width:cell,height:cell,'class':'cell-r '+(M[i][j]?'cA':'cB')},g);
+  if(o.mm){o.mm.forEach(function(p){
+    var x=pad+p[1]*cell,y=pad+p[0]*cell;
+    el('rect',{x:x+2,y:y+2,width:cell-4,height:cell-4,'class':'mm'},svg);
+    el('path',{d:'M'+(x+9)+' '+(y+9)+'L'+(x+cell-9)+' '+(y+cell-9)+'M'+(x+cell-9)+' '+(y+9)+'L'+(x+9)+' '+(y+cell-9),'class':'mmx'},svg);
+  });}
+  return {g:g,size:size,pad:pad,cell:cell};
+}
+function drawAxis(svg,info,key){
+  var s=info.size,c=s/2,p=info.pad;
+  var t=TR[key];
+  if(t.kind==='refl'){
+    var d={reflV:[c,p-4,c,s-p+4],reflH:[p-4,c,s-p+4,c],reflD1:[p-4,p-4,s-p+4,s-p+4],reflD2:[p-4,s-p+4,s-p+4,p-4]}[key];
+    el('line',{x1:d[0],y1:d[1],x2:d[2],y2:d[3],'class':'axis'},svg);
+  } else {
+    el('circle',{cx:c,cy:c,r:5,fill:'var(--achiote)'},svg);
+    var r=info.cell*1.6,ang=t.deg*Math.PI/180,a0=-Math.PI/2;
+    var x1=c+r*Math.cos(a0),y1=c+r*Math.sin(a0),x2=c+r*Math.cos(a0+ang),y2=c+r*Math.sin(a0+ang);
+    el('path',{d:'M'+x1+' '+y1+' A'+r+' '+r+' 0 '+(t.deg>180?1:0)+' 1 '+x2+' '+y2,'class':'axis',style:'stroke-dasharray:none;stroke-width:4;fill:none'},svg);
+    var ah=el('circle',{cx:x2,cy:y2,r:5,fill:'var(--achiote)'},svg);
+    var tx=el('text',{x:c+r+8,y:c-4,'class':'axis-t'},svg);tx.textContent=t.deg+'°';
+  }
+}
+
+/* ====== Balay ====== */
+function P(r,a){return (200+r*Math.cos(a)).toFixed(2)+','+(200+r*Math.sin(a)).toFixed(2);}
+function drawBalay(svg,spin){
+  svg.setAttribute('viewBox','0 0 400 400');svg.textContent='';
+  var n=8,a0=-Math.PI/2,pi=Math.PI;
+  var L1=el('g',{'data-l':1,'class':spin?'ring':''},svg);
+  for(var k=0;k<2*n;k++){var a=a0+k*pi/n,d=pi/n*0.46,pts=[P(150,a-d),P(150,a+d),P(186,a)].join(' ');
+    el('polygon',{points:pts,'class':k%2?'cB':'cR'},L1);
+    el('polygon',{points:pts,fill:'none',stroke:'var(--tinta)','stroke-width':1.5},L1);}
+  var L2=el('g',{'data-l':2},svg);
+  el('circle',{cx:200,cy:200,r:148,fill:'none',stroke:'var(--tinta)','stroke-width':7},L2);
+  var L3=el('g',{'data-l':3,'class':spin?'petals':''},svg),L4=el('g',{'data-l':4,'class':spin?'petals':''},svg);
+  for(var m=0;m<n;m++){var b=a0+m*2*pi/n;
+    el('polygon',{points:[P(46,b),P(90,b-0.30),P(138,b),P(90,b+0.30)].join(' '),'class':'cA',stroke:'var(--fiber)','stroke-width':3},L3);
+    el('polygon',{points:[P(72,b),P(90,b-0.12),P(110,b),P(90,b+0.12)].join(' '),'class':'cB'},L4);}
+  var L5=el('g',{'data-l':5},svg),oct=[];for(var q=0;q<n;q++)oct.push(P(48,a0+q*2*pi/n));
+  el('polygon',{points:oct.join(' '),'class':'cB',stroke:'var(--tinta)','stroke-width':4},L5);
+  var L6=el('g',{'data-l':6},svg),star=[];for(var s=0;s<2*n;s++)star.push(P(s%2?15:36,a0+s*pi/n));
+  el('polygon',{points:star.join(' '),'class':'cR'},L6);
+}
+
+/* ====== Progreso, accesibilidad, sonido ====== */
+var done={movilizar:false,activar:false,explorar:false,estructurar:false,aplicar:false,concluir:false};
+var part={t:false,e:false},clozeDone=false;
+function partDone(k){part[k]=true;if(part.t&&part.e)mark('aplicar');}
+var PAL={canasto:{b:['#D9BC8C','#7A4624']},cur:'canasto'};
+var xp=0,got={},okc={},traOk={},unlocked={};
+var LVS=[[0,'Aprendiz'],[100,'Tejedor/a'],[250,'Artesano/a'],[450,'Maestro/a tejedor/a']];
+function lvlIdx(){var l=0;LVS.forEach(function(x,i){if(xp>=x[0])l=i;});return l;}
+function renderHud(){
+  var l=lvlIdx(),nx=LVS[l+1];
+  $('#xp').textContent=xp;$('#lvl').textContent=LVS[l][1];$('#lvlBig').textContent=LVS[l][1];
+  var base=LVS[l][0],pct=nx?Math.min(100,(xp-base)/(nx[0]-base)*100):100;
+  $('#xpFill').style.width=pct+'%';
+  $('#xpNext').textContent=xp+' XP'+(nx?'. Te faltan '+(nx[0]-xp)+' XP para ser '+nx[1]+'.':'. Llegaste al nivel más alto.');
+  $('#xpBar').setAttribute('aria-label','Nivel '+LVS[l][1]+', '+Math.round(pct)+' por ciento hacia el siguiente');
+  var hd=$('.hud');hd.classList.remove('bump');void hd.offsetWidth;hd.classList.add('bump');
+}
+function award(key,pts){
+  if(key){if(got[key])return;got[key]=true;}
+  if(!pts)return;
+  var b=lvlIdx();xp+=pts;renderHud();
+  if(lvlIdx()>b){toast('Subiste de nivel: '+LVS[lvlIdx()][1]);tone([523,659,784]);}
+}
+var BADGES=[
+ {id:'espejo',n:'Ojo de espejo',d:'Encuentra 3 simetrías en el laboratorio.',i:'<path d="M20 4V36" stroke-dasharray="3 3"/><path d="M17 10L6 20L17 30Z"/><path d="M23 10L34 20L23 30Z" fill="currentColor"/>'},
+ {id:'detective',n:'Detective de simetrías',d:'Encuentra las 7 simetrías del Patrón A.',i:'<circle cx="17" cy="17" r="9"/><path d="M24 24L34 34"/>'},
+ {id:'giro',n:'Vuelta completa',d:'Completa la vuelta del balay con florecitas.',i:'<path d="M31 14A12 12 0 1 0 32 22"/><path d="M33 6V15H24"/>'},
+ {id:'cinta',n:'Cinta sin fin',d:'Encuentra una traslación que coincide en las 3 cintas.',i:'<path d="M4 20L10 12L16 20L10 28Z"/><path d="M14 20L20 12L26 20L20 28Z" fill="currentColor"/><path d="M24 20L30 12L36 20L30 28Z"/>'},
+ {id:'disenador',n:'Diseñador/a',d:'Cumple el reto del taller con 2 simetrías.',i:'<rect x="6" y="6" width="12" height="12" fill="currentColor"/><rect x="22" y="6" width="12" height="12"/><rect x="6" y="22" width="12" height="12"/><rect x="22" y="22" width="12" height="12" fill="currentColor"/>'},
+ {id:'mente',n:'Mente matemática',d:'Acierta las 5 preguntas de la evaluación.',i:'<path d="M20 4L23 15L34 12L26 20L34 28L23 25L20 36L17 25L6 28L14 20L6 12L17 15Z" fill="currentColor"/>'},
+ {id:'voz',n:'Voz del territorio',d:'Escribe tu reflexión final.',i:'<path d="M6 12H34M6 20H28M6 28H22"/>'},
+ {id:'relampago',n:'Rayo de simetría',d:'Logra 100 puntos en el reto relámpago con tiempo.',i:'<path d="M23 3L8 23h10l-3 14L32 15H22z" fill="currentColor"/>'},
+ {id:'tejido',n:'Tejido completo',d:'Completa las 6 fases del recorrido.',i:'<circle cx="20" cy="20" r="15"/><path d="M20 8L26 20L20 32L14 20Z" fill="currentColor"/><path d="M8 20L20 14L32 20L20 26Z"/>'}
+];
+function renderBadges(){
+  var ul=$('#badges');ul.textContent='';
+  BADGES.forEach(function(b){var li=document.createElement('li');li.className='badge';li.id='b-'+b.id;li.setAttribute('data-on',unlocked[b.id]?'1':'0');
+    li.innerHTML='<div class="medal" aria-hidden="true"><svg viewBox="0 0 40 40">'+b.i+'</svg></div><b></b><span class="note"></span><span class="st2"></span>';
+    li.children[1].textContent=b.n;li.children[2].textContent=b.d;li.children[3].textContent=unlocked[b.id]?'Obtenida':'Bloqueada';ul.appendChild(li);});
+}
+function unlock(id){
+  if(unlocked[id])return;unlocked[id]=true;
+  var b=BADGES.filter(function(x){return x.id===id})[0];renderBadges();
+  toast('Insignia: '+b.n);tone([784,988]);award('b-'+id,25);
+}
+function checkBadges(){
+  if(Object.keys(okc).length>=3)unlock('espejo');
+  if(Object.keys(okc).filter(function(k){return k.charAt(0)==='A'}).length>=7)unlock('detective');
+  if(Object.keys(traOk).length>=3)unlock('cinta');
+}
+var LAYER={movilizar:1,activar:2,explorar:3,estructurar:4,aplicar:5,concluir:6};
+var tq=[],tshow=false;
+function toast(msg){tq.push(msg);if(!tshow)nextToast();}
+function nextToast(){if(!tq.length){tshow=false;return;}tshow=true;var t=$('#toast');t.textContent=tq.shift();t.classList.add('on');setTimeout(function(){t.classList.remove('on');setTimeout(nextToast,420);},2300);}
+function confetti(){
+  if(reduceMotion)return;
+  var c=$('#confetti'),x=c.getContext('2d');c.width=window.innerWidth;c.height=window.innerHeight;
+  var cols=[PAL[PAL.cur].b[0],PAL[PAL.cur].b[1],'#F2B84B','#F4EFE0','#1E8A83'],Q=[];
+  for(var i=0;i<140;i++)Q.push({x:Math.random()*c.width,y:-20-Math.random()*c.height*.5,vx:(Math.random()-.5)*3,vy:2+Math.random()*4,s:6+Math.random()*10,r:Math.random()*6,vr:(Math.random()-.5)*.3,c:cols[i%cols.length]});
+  var t0=performance.now();
+  (function f(t){x.clearRect(0,0,c.width,c.height);
+    Q.forEach(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=.03;p.r+=p.vr;x.save();x.translate(p.x,p.y);x.rotate(p.r);x.fillStyle=p.c;x.beginPath();x.moveTo(0,-p.s);x.lineTo(p.s*.6,0);x.lineTo(0,p.s);x.lineTo(-p.s*.6,0);x.closePath();x.fill();x.restore();});
+    if(t-t0<3800)requestAnimationFrame(f);else x.clearRect(0,0,c.width,c.height);})(t0);
+}
+function mark(k){
+  if(done[k])return;done[k]=true;
+  var c=0;for(var x in done)if(done[x])c++;
+  $('#prog').value=c;$('#progTxt').textContent='Avance: '+c+' de 6 fases';
+  $('#barFill').style.width=(c/6*100)+'%';award('ph-'+k,50);
+  var a=$('#navList a[data-k="'+k+'"]'),nm='';
+  if(a){a.setAttribute('data-done','1');a.querySelector('b').textContent='✓';nm=a.querySelector('.lbl').textContent;a.setAttribute('aria-label','Fase '+LAYER[k]+', '+nm+', completada');}
+  var g=$('#trophySvg [data-l="'+LAYER[k]+'"]');if(g)g.classList.add('on');
+  $('#trophyCount').textContent=c+' de 6 capas tejidas';
+  if(c===6){
+    unlock('tejido');
+    $('#trophy').setAttribute('data-full','1');$('#certBtn').disabled=false;
+    $('#trophyTxt').textContent='Tejiste las seis capas del balay. Escribe tu nombre y copia tu constancia para entregarla.';
+    toast('¡Completaste las 6 fases!');confetti();tone([523,659,784,1046]);
+  } else {toast('Fase '+LAYER[k]+' completada: '+nm);tone([660,880]);}
+}
+var soundOn=false,ac=null;
+function tone(fr){
+  if(!soundOn)return;
+  try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+    fr.forEach(function(f,i){var o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.type='sine';
+      g.gain.setValueAtTime(0.0001,ac.currentTime+i*0.16);g.gain.exponentialRampToValueAtTime(0.15,ac.currentTime+i*0.16+0.02);g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+i*0.16+0.18);
+      o.connect(g);g.connect(ac.destination);o.start(ac.currentTime+i*0.16);o.stop(ac.currentTime+i*0.16+0.2);});
+  }catch(e){}
+}
+var sizeNames=['Texto pequeño','Texto normal','Texto grande','Texto muy grande'];
+function setSize(v){v=Math.max(0,Math.min(3,v));document.documentElement.setAttribute('data-size',v);$('#sizeTxt').textContent=sizeNames[v];store.set('tg-size',v);}
+$('#sizeDown').addEventListener('click',function(){setSize(+document.documentElement.getAttribute('data-size')-1)});
+$('#sizeUp').addEventListener('click',function(){setSize(+document.documentElement.getAttribute('data-size')+1)});
+$('#contrastBtn').addEventListener('click',function(){
+  var on=this.getAttribute('aria-pressed')!=='true';this.setAttribute('aria-pressed',on);
+  if(on)document.documentElement.setAttribute('data-contrast','high');else document.documentElement.removeAttribute('data-contrast');
+  store.set('tg-contrast',on?'1':'0');
+});
+$('#soundBtn').addEventListener('click',function(){soundOn=this.getAttribute('aria-pressed')!=='true';this.setAttribute('aria-pressed',soundOn);tone([523,659]);});
+(function(){var s=store.get('tg-size');if(s!==null)setSize(+s);else setSize(1);
+  if(store.get('tg-contrast')==='1'){document.documentElement.setAttribute('data-contrast','high');$('#contrastBtn').setAttribute('aria-pressed','true');}})();
+
+/* Lectura en voz alta */
+var synth=window.speechSynthesis,speakingBtn=null;
+function resetListen(){$$('.listen').forEach(function(b){b.textContent='Escuchar sección';b.setAttribute('aria-pressed','false');});speakingBtn=null;}
+if(!synth||!window.SpeechSynthesisUtterance){$$('.listen').forEach(function(b){b.hidden=true;});}
+else{
+  $$('.listen').forEach(function(b){
+    b.setAttribute('aria-pressed','false');
+    b.addEventListener('click',function(){
+      try{
+        var was=speakingBtn===b;
+        synth.cancel();resetListen();
+        if(was)return;
+        var sec=document.getElementById(b.getAttribute('data-listen'));
+        var parts=$$('h2,h3,h4,p,li,legend,label.f',sec).filter(function(n){return !n.closest('[aria-hidden="true"]')&&!n.closest('.listen')&&!n.closest('details:not([open])')&&!n.closest('.hs-btns')});
+        var txt=parts.map(function(n){return n.textContent.trim()}).join('. ');
+        var u=new SpeechSynthesisUtterance(txt);u.lang='es-CO';
+        var v=(synth.getVoices()||[]).filter(function(x){return /^es/i.test(x.lang)});
+        if(v.length)u.voice=v.filter(function(x){return /CO|419|MX|US/i.test(x.lang)})[0]||v[0];
+        u.onend=u.onerror=resetListen;
+        speakingBtn=b;b.textContent='Detener lectura';b.setAttribute('aria-pressed','true');
+        synth.speak(u);
+      }catch(e){resetListen();}
+    });
+  });
+}
+
+/* ====== Portada e Inicio ====== */
+drawBalay($('#heroSvg'),true);
+drawBalay($('#posterSvg'),false);
+var poster=$('#posterSvg');poster.setAttribute('role','presentation');
+
+var ex=$('#exSvg');drawBalay(ex,false);
+var hsLayer=el('g',{},ex);
+var pulse=el('circle',{cx:200,cy:200,r:52,'class':'pulse'},hsLayer);
+var hsInfo=$('#hsInfo'),HS={
+  centro:{t:'El centro: un polígono regular',p:'Tiene 8 lados iguales y 8 ángulos iguales. Cada ángulo interior mide 135° y cada ángulo central mide 45°.'},
+  florecita:{t:'Una florecita: se repite al girar',p:'Si giras el balay 45° alrededor del centro, esta florecita cae sobre la siguiente. Hay 8 florecitas: 8 × 45° = 360°. Es una simetría de giro.'},
+  anillo:{t:'El anillo de triángulos: repetición',p:'Los triángulos se alternan de color y rodean el balay. Si desenrollas el anillo en una cinta recta, cada triángulo se repite al deslizarlo: eso es una traslación.'},
+  eje:{t:'El eje: una recta de espejo',p:'Si doblas el balay por esta recta, la mitad de la izquierda cae sobre la de la derecha. Este balay tiene 8 ejes distintos, separados 22,5° entre sí.'}
+};
+var seen={},selShape=null;
+function kite0(){var a=-Math.PI/2;return [P(46,a),P(90,a-0.30),P(138,a),P(90,a+0.30)].join(' ');}
+function showHS(key){
+  if(pulse){pulse.remove();pulse=null;}
+  if(selShape){selShape.remove();selShape=null;}
+  if(key==='centro')selShape=el('circle',{cx:200,cy:200,r:54,fill:'none',stroke:'var(--achiote)','stroke-width':5,'stroke-dasharray':'8 5'},hsLayer);
+  if(key==='florecita')selShape=el('polygon',{points:kite0(),fill:'none',stroke:'var(--achiote)','stroke-width':6},hsLayer);
+  if(key==='anillo')selShape=el('circle',{cx:200,cy:200,r:168,fill:'none',stroke:'var(--achiote)','stroke-opacity':.4,'stroke-width':40},hsLayer);
+  if(key==='eje')selShape=el('line',{x1:200,y1:4,x2:200,y2:396,stroke:'var(--achiote)','stroke-width':4,'stroke-dasharray':'10 6'},hsLayer);
+  hsInfo.innerHTML='';var h=document.createElement('h4');h.textContent=HS[key].t;var p=document.createElement('p');p.textContent=HS[key].p;hsInfo.appendChild(h);hsInfo.appendChild(p);
+  seen[key]=true;award('hs-'+key,5);var c=Object.keys(seen).length;$('#hsCount').textContent='Partes exploradas: '+c+' de 4';
+  $$('#hsBtns .btn').forEach(function(b){b.setAttribute('aria-pressed',b.getAttribute('data-k')===key)});
+  checkInicio();
+}
+(function(){
+  var hit=el('g',{'class':'hs','aria-hidden':'true'},ex);
+  var shapes={
+    anillo:el('circle',{cx:200,cy:200,r:168,fill:'none',stroke:'transparent','stroke-width':40},hit),
+    florecita:el('polygon',{points:kite0(),fill:'transparent'},hit),
+    centro:el('circle',{cx:200,cy:200,r:46,fill:'transparent'},hit)
+  };
+  for(var k in shapes)(function(k){shapes[k].addEventListener('click',function(){showHS(k)})})(k);
+  var names={centro:'Centro',florecita:'Una florecita',anillo:'Anillo de triángulos',eje:'Eje de espejo'};
+  Object.keys(names).forEach(function(k){
+    var b=document.createElement('button');b.type='button';b.className='btn';b.setAttribute('data-k',k);b.setAttribute('aria-pressed','false');b.textContent=names[k];
+    b.addEventListener('click',function(){showHS(k)});$('#hsBtns').appendChild(b);
+  });
+})();
+var hypDone=false;
+$$('#hyp input').forEach(function(r){r.addEventListener('change',function(){
+  var fb=$('#hypFb');fb.className='fb '+(r.value==='c'?'ok':'no');
+  fb.textContent=r.value==='c'?'Correcto. Este balay tiene 8 ejes de espejo; con cualquier otra recta las mitades no coinciden.':'Casi. Con algunas rectas coinciden y con otras no. Comprueba tocando el eje de espejo y piensa qué pasaría con una recta torcida.';
+  hypDone=true;award('hyp',10);tone(r.value==='c'?[660,880]:[300]);checkInicio();
+});});
+function checkInicio(){if(hypDone&&Object.keys(seen).length>=3)mark('activar');}
+
+/* ====== Video ====== */
+function ytId(u){var m=String(u).match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/);return m?m[1]:null;}
+function makeFace(id,title){
+  var b=document.createElement('button');b.type='button';b.className='yt-face';b.setAttribute('aria-label','Reproducir: '+title);
+  b.innerHTML='<img alt="" loading="lazy" src="https://i.ytimg.com/vi/'+id+'/hqdefault.jpg"><span class="yt-play"></span>';
+  b.addEventListener('click',function(){var f=document.createElement('iframe');f.className='yt';f.src='https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&rel=0';f.title=title;f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';f.allowFullscreen=true;b.replaceWith(f);f.focus();});
+  return b;
+}
+(function(){
+  var a=$('#videoLink');
+  if(!VIDEO_URL&&SUPPORT_URL){a.href=SUPPORT_URL;a.target='_blank';a.rel='noopener';a.removeAttribute('aria-disabled');$('#videoNote').textContent='Video de apoyo: Abel Rodríguez, cestero de la Amazonia colombiana (Smithsonian Folklife Festival). Se abre aparte.';
+    $('#videoDesc').textContent='Mira cómo un cestero amazónico teje un canasto. Fíjate en cómo se repiten las figuras y en cómo el tejido se acomoda alrededor de un centro. Luego usa el laboratorio.';
+    var sid=ytId(SUPPORT_URL);if(EMBED&&sid){var sp=$('.poster');sp.textContent='';sp.removeAttribute('aria-hidden');sp.appendChild(makeFace(sid,'Abel Rodríguez, cestero de la Amazonia'));}
+    var d=$('#video details.tx');if(d)d.hidden=true;}
+  else
+  if(VIDEO_URL){a.href=VIDEO_URL;a.target='_blank';a.rel='noopener';a.removeAttribute('aria-disabled');$('#videoNote').textContent='Video de autoría propia. Si no puedes verlo, lee la transcripción.';
+    var id=ytId(VIDEO_URL);
+    if(EMBED&&id){var po=$('.poster');po.textContent='';po.removeAttribute('aria-hidden');po.appendChild(makeFace(id,'Video de autoría propia'));}
+  } else {a.addEventListener('click',function(e){e.preventDefault();});}
+  if(EMBED){$$('.vids li').forEach(function(li){var l=$('a',li),id=ytId(l.href);if(!id)return;
+    var t=l.firstChild.textContent.trim();li.classList.add('emb');li.insertBefore(makeFace(id,t),li.firstChild);});}
+})();
+
+/* ====== Pestañas ====== */
+(function(){
+  var tabs=$$('.tab');
+  function sel(t){tabs.forEach(function(x){var on=x===t;x.setAttribute('aria-selected',on);x.tabIndex=on?0:-1;$('#'+x.getAttribute('aria-controls')).hidden=!on;});}
+  tabs.forEach(function(t,i){
+    t.addEventListener('click',function(){sel(t)});
+    t.addEventListener('keydown',function(e){
+      var d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(!d)return;
+      var n=tabs[(i+d+tabs.length)%tabs.length];sel(n);n.focus();e.preventDefault();});
+  });
+})();
+
+/* ====== Laboratorio ====== */
+var lab={pat:'A',tested:{},cur:null};
+var tested5={};
+(function(){
+  var seg=$('#patSeg');
+  Object.keys(PATS).forEach(function(k){
+    var b=document.createElement('button');b.type='button';b.className='btn';b.textContent=PATS[k].name;b.setAttribute('data-k',k);b.setAttribute('aria-pressed',k===lab.pat);
+    b.addEventListener('click',function(){lab.pat=k;lab.tested={};lab.cur=null;$$('#patSeg .btn').forEach(function(x){x.setAttribute('aria-pressed',x===b)});renderLab();});
+    seg.appendChild(b);
+  });
+  var box=$('#tBtns');
+  KEYS.forEach(function(k){
+    var b=document.createElement('button');b.type='button';b.className='tbtn';b.setAttribute('data-k',k);b.setAttribute('aria-pressed','false');
+    b.innerHTML='<span></span><small></small>';b.firstChild.textContent=TR[k].label;
+    b.addEventListener('click',function(){runT(k)});box.appendChild(b);
+  });
+})();
+function renderLab(){
+  var M=PATS[lab.pat].M;
+  var info=drawGrid($('#svgOrig'),M);
+  if(lab.cur)drawAxis($('#svgOrig'),info,lab.cur);
+  $('#svgOrig').setAttribute('aria-label','Patrón original: '+PATS[lab.pat].name);
+  if(lab.cur){var X=apply(M,lab.cur),d=diff(M,X);drawGrid($('#svgTr'),X,{mm:d});}
+  else drawGrid($('#svgTr'),M);
+  $('#capTr').textContent=lab.cur?'Patrón transformado: '+TR[lab.cur].label.toLowerCase():'Patrón transformado';
+  $$('#tBtns .tbtn').forEach(function(b){
+    var k=b.getAttribute('data-k'),st=lab.tested[k];
+    b.setAttribute('aria-pressed',k===lab.cur);
+    if(st)b.setAttribute('data-st',st);else b.removeAttribute('data-st');
+    b.lastChild.textContent=st==='ok'?'Coincide':st==='no'?'No coincide':'Sin probar';
+  });
+  var total=invariants(M).length,found=Object.keys(lab.tested).filter(function(k){return lab.tested[k]==='ok'}).length;
+  $('#tally').textContent='Simetrías encontradas en este patrón: '+found+' de '+total;
+  $('#patTxt').textContent=asText(M);
+  if(!lab.cur){var f=$('#labFb');f.className='fb neutral';f.textContent='Elige una transformación para comprobarla.';}
+}
+function runT(k){
+  var M=PATS[lab.pat].M,X=apply(M,k),d=diff(M,X);
+  lab.cur=k;lab.tested[k]=d.length?'no':'ok';tested5[lab.pat+k]=true;if(!d.length)okc[lab.pat+k]=1;award('t-'+lab.pat+k,5);checkBadges();
+  renderLab();
+  var f=$('#labFb');f.className='fb '+(d.length?'no':'ok');
+  f.textContent=TR[k].label+': '+(d.length?'no coincide, '+d.length+' celdas cambian de color. Esta transformación no es una simetría de este patrón.':'coincide. '+TR[k].ok);
+  tone(d.length?[300]:[660,880]);
+  if(!reduceMotion&&$('#svgTr').firstChild&&$('#svgTr').firstChild.animate){
+    var g=$('#svgTr').firstChild,t=TR[k],from={reflV:'scaleX(-1)',reflH:'scaleY(-1)',reflD1:'rotate(45deg) scaleY(-1) rotate(-45deg)',reflD2:'rotate(-45deg) scaleY(-1) rotate(45deg)',rot90:'rotate(-90deg)',rot180:'rotate(-180deg)',rot270:'rotate(-270deg)'}[k];
+    g.style.transformBox='fill-box';g.style.transformOrigin='center';
+    try{g.animate([{transform:from},{transform:'none'}],{duration:500,easing:'ease-out'});}catch(e){}
+  }
+  checkDes();
+}
+renderLab();
+
+/* ====== Traslación ====== */
+var stripState={moved:false};
+function drawStrip(){
+  var kind=$('#kind').value,t=+$('#tRange').value,per={a:1,b:2,c:3}[kind];
+  var svg=$('#stripSvg');svg.textContent='';svg.setAttribute('viewBox','0 0 640 190');
+  var cw=44,x0=20,cols=['var(--tinta)','var(--achiote)','var(--fiber)'];
+  function row(y,shift,ghost){
+    for(var i=-8;i<16;i++){
+      var cx=x0+i*cw+cw/2+shift*cw;if(cx<x0-2||cx>x0+13*cw+2)continue;
+      var c=cols[({a:0,b:i%2,c:i%3}[kind]+3)%3];
+      var pts=[[cx,y],[cx+cw/2-2,y+22],[cx,y+44],[cx-cw/2+2,y+22]].map(function(p){return p.join(',')}).join(' ');
+      el('polygon',{points:pts,fill:c,stroke:'var(--ink)','stroke-width':ghost?2.5:1.5,'stroke-dasharray':ghost?'5 3':'0'},svg);
+    }
+  }
+  var lab1=el('text',{x:x0,y:16,'class':'axis-t',style:'fill:var(--ink)'},svg);lab1.textContent='Cinta original';
+  row(24,0,false);
+  var lab2=el('text',{x:x0,y:100,'class':'axis-t',style:'fill:var(--ink)'},svg);lab2.textContent='Copia deslizada';
+  row(108,t,true);
+  if(t>0){el('line',{x1:x0,y1:170,x2:x0+t*cw,y2:170,stroke:'var(--achiote)','stroke-width':4},svg);
+    el('polygon',{points:(x0+t*cw)+',170 '+(x0+t*cw-10)+',164 '+(x0+t*cw-10)+',176',fill:'var(--achiote)'},svg);}
+  $('#tOut').textContent=fmt(t)+(t===1?' celda':' celdas');
+  var f=$('#traFb'),ok=(t%per)===0;
+  if(t===0){f.className='fb neutral';f.textContent='Mueve el control deslizante.';}
+  else if(ok){f.className='fb ok';f.textContent='Coincide. Deslizar '+fmt(t)+(t===1?' celda':' celdas')+' deja la cinta igual. La menor traslación que coincide es de '+per+(per===1?' celda':' celdas')+'.';}
+  else{f.className='fb no';f.textContent='No coincide. Los rombos de la copia quedan sobre rombos de otro color o desfasados. Sigue moviendo.';}
+  if(t>0){stripState.moved=true;if(ok){traOk[kind]=1;award('tra-'+kind,10);checkBadges();}checkDes();}
+}
+$('#tRange').addEventListener('input',drawStrip);$('#kind').addEventListener('change',drawStrip);drawStrip();stripState.moved=false;
+
+/* ====== Polígonos ====== */
+var poly={k:0,timer:null};
+function drawPoly(){
+  var n=+$('#nRange').value,svg=$('#polySvg');svg.textContent='';svg.setAttribute('viewBox','0 0 300 300');
+  var cx=150,cy=150,R=125,a0=-Math.PI/2;
+  function pt(r,a){return [cx+r*Math.cos(a),cy+r*Math.sin(a)];}
+  var vs=[];for(var i=0;i<n;i++)vs.push(pt(R,a0+i*2*Math.PI/n));
+  el('polygon',{points:vs.map(function(p){return p.join(',')}).join(' '),fill:'var(--surface)',stroke:'var(--ink)','stroke-width':3},svg);
+  vs.forEach(function(p){el('line',{x1:cx,y1:cy,x2:p[0],y2:p[1],stroke:'var(--line)','stroke-width':1.5,'stroke-dasharray':'4 4'},svg);});
+  // arco del ángulo central entre las dos primeras líneas
+  var ar=34,aa=a0,ab=a0+2*Math.PI/n,p1=pt(ar,aa),p2=pt(ar,ab);
+  el('path',{d:'M'+p1[0]+' '+p1[1]+' A'+ar+' '+ar+' 0 0 1 '+p2[0]+' '+p2[1],fill:'none',stroke:'var(--achiote)','stroke-width':3},svg);
+  for(var k=0;k<poly.k;k++){
+    var a=a0+k*2*Math.PI/n,w=Math.min(0.32,Math.PI/n*0.8);
+    var pts=[pt(26,a),pt(R*0.55,a-w),pt(R*0.92,a),pt(R*0.55,a+w)].map(function(p){return p.join(',')}).join(' ');
+    el('polygon',{points:pts,fill:k===poly.k-1?'var(--achiote)':'var(--tinta)',stroke:'var(--fiber)','stroke-width':2},svg);
+  }
+  el('circle',{cx:cx,cy:cy,r:4,fill:'var(--ink)'},svg);
+  var cen=360/n,inn=(n-2)*180/n;
+  $('#nOut').textContent=n;$('#kvCen').textContent=fmt(cen)+'°';$('#kvInt').textContent=fmt(inn)+'°';
+  var f=$('#polFb');
+  if(poly.k===0){f.className='fb neutral';f.textContent='Aún no hay florecitas. Pulsa “Girar y añadir florecita”.';}
+  else if(poly.k<n){f.className='fb neutral';f.textContent='Giro '+poly.k+': '+poly.k+' × '+fmt(cen)+'° = '+fmt(poly.k*cen)+'°. Faltan '+(n-poly.k)+' florecitas.';}
+  else{f.className='fb ok';f.textContent='Vuelta completa: '+n+' × '+fmt(cen)+'° = 360°. Volviste al punto de partida.';poly.full=true;award('poly',20);unlock('giro');checkDes();}
+}
+function stopPlay(){if(poly.timer){clearInterval(poly.timer);poly.timer=null;}$('#playPetal').setAttribute('aria-pressed','false');$('#playPetal').textContent='Reproducir';}
+$('#nRange').addEventListener('input',function(){stopPlay();poly.k=0;drawPoly();});
+$('#addPetal').addEventListener('click',function(){stopPlay();var n=+$('#nRange').value;if(poly.k<n)poly.k++;drawPoly();tone([440+poly.k*30]);});
+$('#resetPetal').addEventListener('click',function(){stopPlay();poly.k=0;drawPoly();});
+$('#playPetal').addEventListener('click',function(){
+  if(poly.timer){stopPlay();return;}
+  var n=+$('#nRange').value;if(poly.k>=n)poly.k=0;
+  this.setAttribute('aria-pressed','true');this.textContent='Pausar';
+  poly.timer=setInterval(function(){var n=+$('#nRange').value;if(poly.k<n){poly.k++;drawPoly();}else stopPlay();},reduceMotion?400:700);
+});
+drawPoly();
+
+function checkDes(){
+  var c=Object.keys(tested5).length;$('#cT').textContent=Math.min(c,5);
+  function li(id,ok){if(ok)$('#'+id).setAttribute('data-ok','1');}
+  li('liT',c>=5);li('liS',stripState.moved);li('liP',!!poly.full);li('liC',clozeDone);
+  if(c>=5)mark('explorar');
+  if(stripState.moved&&poly.full&&clozeDone)mark('estructurar');
+}
+$('#clozeBtn').addEventListener('click',function(){
+  var sel=$$('#cloze select'),ok=0,empty=0;
+  sel.forEach(function(s){var good=s.value===s.getAttribute('data-ok');if(!s.value)empty++;s.setAttribute('aria-invalid',(!good).toString());if(good)ok++;});
+  var f=$('#clozeFb');
+  if(ok===sel.length){f.className='fb ok';f.textContent='Correcto. Las cuatro frases dicen lo que descubriste.';clozeDone=true;award('cloze',30);tone([660,880]);checkDes();}
+  else{f.className='fb no';f.textContent=(empty?'Faltan '+empty+' frases por elegir. ':'')+'Tienes '+ok+' de '+sel.length+' correctas. Revisa el laboratorio y la cinta, y cambia las que fallan.';tone([300]);}
+});
+
+/* ====== Taller ====== */
+var W=copy(PB),wMode='v';
+var ORB={
+  none:function(i,j){return [[i,j]]},
+  v:function(i,j){return [[i,j],[i,N-1-j]]},
+  h:function(i,j){return [[i,j],[N-1-i,j]]},
+  vh:function(i,j){return [[i,j],[i,N-1-j],[N-1-i,j],[N-1-i,N-1-j]]},
+  r180:function(i,j){return [[i,j],[N-1-i,N-1-j]]},
+  r90:function(i,j){return [[i,j],[j,N-1-i],[N-1-i,N-1-j],[N-1-j,i]]},
+  d4:function(i,j){var a=[[i,j],[j,N-1-i],[N-1-i,N-1-j],[N-1-j,i]],b=a.map(function(p){return [p[0],N-1-p[1]]});return a.concat(b);}
+};
+var cells=[];
+(function(){
+  var g=$('#wgrid');
+  for(var i=0;i<N;i++)for(var j=0;j<N;j++)(function(i,j){
+    var b=document.createElement('button');b.type='button';b.className='wcell';
+    b.addEventListener('click',function(){
+      var v=W[i][j]?0:1;var orb=ORB[wMode](i,j);orb.forEach(function(p){W[p[0]][p[1]]=v});renderW();orb.forEach(function(p){var c=cells[p[0]*N+p[1]];c.classList.remove('pop');void c.offsetWidth;c.classList.add('pop');});
+    });
+    g.appendChild(b);cells.push(b);
+  })(i,j);
+})();
+$('#wMode').addEventListener('change',function(){wMode=this.value;});
+$('#wClear').addEventListener('click',function(){W=mk(function(){return 0});renderW();});
+$('#wExample').addEventListener('click',function(){W=copy(PB);renderW();});
+function wDesc(){
+  var inv=invariants(W),name=$('#wName').value.trim();
+  return (name?'Mi patrón: '+name+'\n':'Mi patrón\n')+asText(W)+'\nSimetrías: '+(inv.length?listNames(inv):'ninguna')+'.';
+}
+function renderW(){
+  cells.forEach(function(b,idx){var i=Math.floor(idx/N),j=idx%N;b.setAttribute('aria-pressed',W[i][j]===1);b.setAttribute('aria-label','Fila '+(i+1)+', columna '+(j+1)+', '+(W[i][j]?'oscura':'clara'));});
+  var inv=invariants(W),dark=0;W.forEach(function(r){r.forEach(function(v){dark+=v})});
+  var tags=$('#wTags');tags.textContent='';
+  if(!inv.length){var s=document.createElement('span');s.className='tag none';s.textContent='Ninguna todavía';tags.appendChild(s);}
+  inv.forEach(function(k){var s=document.createElement('span');s.className='tag';s.textContent='✓ '+TR[k].label;tags.appendChild(s);});
+  var f=$('#wFb'),uniform=(dark===0||dark===N*N);
+  if(uniform){f.className='fb neutral';f.textContent='Pinta algunas celdas: un diseño de un solo color tiene todas las simetrías, pero no cuenta para el reto.';}
+  else if(inv.length>=2){f.className='fb ok';f.textContent='Reto cumplido: tu diseño tiene '+inv.length+' simetrías. Dale un nombre y copia su descripción.';partDone('t');award('taller',50);unlock('disenador');}
+  else{f.className='fb neutral';f.textContent=inv.length===1?'Tienes 1 simetría. Cambia el modo de copia o pinta celdas para lograr una segunda.':'Tu diseño aún no tiene simetrías. Elige un modo de copia y pinta.';}
+  var t=$('#wTile');t.textContent='';var cs=12,pad=4;t.setAttribute('viewBox','0 0 '+(N*cs*3+pad*2)+' '+(N*cs+pad*2));
+  for(var r=0;r<3;r++)for(var i=0;i<N;i++)for(var j=0;j<N;j++)el('rect',{x:pad+(r*N+j)*cs,y:pad+i*cs,width:cs,height:cs,'class':'cell-r '+(W[i][j]?'cA':'cB')},t);
+  $('#wTxt').textContent=asText(W);
+}
+$('#wName').addEventListener('input',function(){});
+function copyText(txt,fbEl,areaEl){
+  function manual(){areaEl.hidden=false;areaEl.value=txt;areaEl.focus();areaEl.select();fbEl.textContent='Selecciona y copia el texto de abajo.';}
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(function(){fbEl.textContent='Copiado.';areaEl.hidden=true;},manual);}
+    else manual();
+  }catch(e){manual();}
+}
+$('#wCopy').addEventListener('click',function(){copyText(wDesc(),$('#wCopyFb'),$('#wCopyTxt'));});
+renderW();
+
+/* ====== Evaluación ====== */
+var QS=[
+  {t:'multi',q:'Mira este patrón. Marca todas las transformaciones que lo dejan igual.',M:PD,expl:function(){var i=invariants(PD);return 'Las simetrías de este patrón son: '+(i.length?listNames(i):'ninguna')+'.';}},
+  {t:'num',q:'Una florecita cae sobre la siguiente cada vez que giras el balay 60°. ¿Cuántas florecitas hay en la vuelta completa?',ans:6,expl:function(){return '360° ÷ 60° = 6 florecitas.';}},
+  {t:'num',q:'¿Cuánto mide, en grados, cada ángulo interior de un hexágono regular?',ans:120,expl:function(){return '(6 − 2) · 180° ÷ 6 = 120°.';}},
+  {t:'mcq',q:'Una cinta repite: rojo, negro, negro, rojo, negro, negro… ¿Cuántas celdas hay que deslizarla, como mínimo, para que coincida consigo misma?',opts:['1 celda','2 celdas','3 celdas','6 celdas'],ans:2,expl:function(){return 'El grupo “rojo, negro, negro” se repite cada 3 celdas. Con 6 celdas también coincide, pero 3 es la menor.';}},
+  {t:'mcq',q:'¿Qué diferencia hay entre una simetría axial y una simetría rotacional?',opts:['La axial refleja el patrón en una recta; la rotacional lo hace coincidir al girarlo alrededor de un punto.','La axial desliza el patrón; la rotacional lo refleja.','No hay diferencia: son el mismo nombre.','La axial solo existe en canastos y la rotacional solo en malocas.'],ans:0,expl:function(){return 'Axial: hay un eje de espejo. Rotacional: hay un centro y un ángulo de giro. Ambas pueden aparecer en el mismo objeto.';}}
+];
+var score=0,answered=0;
+function shuffle(a){var r=a.map(function(x,i){return [x,i]});for(var i=r.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=r[i];r[i]=r[j];r[j]=t;}return r;}
+function buildQuiz(){
+  var f=$('#quiz');f.textContent='';score=0;answered=0;$('#quizEnd').hidden=true;$('#quizRetry').hidden=true;
+  QS.forEach(function(Q,qi){
+    var fs=document.createElement('fieldset');fs.className='q';
+    var lg=document.createElement('legend');lg.textContent='Pregunta '+(qi+1)+' de '+QS.length;fs.appendChild(lg);
+    var qt=document.createElement('p');qt.className='qt';qt.textContent=Q.q;fs.appendChild(qt);
+    var get;
+    if(Q.t==='multi'){
+      var sv=document.createElementNS(NS,'svg');sv.setAttribute('class','gsvg');sv.setAttribute('role','img');sv.setAttribute('aria-label','Patrón de la pregunta '+(qi+1)+'. Descripción en texto: '+asText(Q.M).replace(/\n/g,'. Fila: '));drawGrid(sv,Q.M);fs.appendChild(sv);
+      var o=document.createElement('div');o.className='opts';
+      KEYS.forEach(function(k){var l=document.createElement('label');var c=document.createElement('input');c.type='checkbox';c.value=k;l.appendChild(c);l.appendChild(document.createTextNode(TR[k].label));o.appendChild(l);});
+      fs.appendChild(o);
+      get=function(){var s=$$('input:checked',o).map(function(c){return c.value}).sort().join();return s===invariants(Q.M).sort().join();};
+    } else if(Q.t==='num'){
+      var inp=document.createElement('input');inp.type='number';inp.inputMode='numeric';inp.className='qnum';inp.setAttribute('aria-label','Tu respuesta a la pregunta '+(qi+1));
+      var w=document.createElement('div');w.style.margin='0 0 .8rem';w.appendChild(inp);fs.appendChild(w);
+      get=function(){return inp.value!==''&&+inp.value===Q.ans;};
+    } else {
+      var o2=document.createElement('div');o2.className='opts';var order=shuffle(Q.opts);
+      order.forEach(function(p){var l=document.createElement('label');var r=document.createElement('input');r.type='radio';r.name='q'+qi;r.value=p[1];l.appendChild(r);l.appendChild(document.createTextNode(p[0]));o2.appendChild(l);});
+      fs.appendChild(o2);
+      get=function(){var c=$('input:checked',o2);return !!c&&+c.value===Q.ans;};
+    }
+    var b=document.createElement('button');b.type='button';b.className='btn primary';b.textContent='Comprobar';fs.appendChild(b);
+    var fb=document.createElement('div');fb.setAttribute('role','status');fs.appendChild(fb);
+    b.addEventListener('click',function(){
+      var ok=get();
+      fb.className='fb '+(ok?'ok':'no');fb.textContent=(ok?'Correcto. ':'Revisa. ')+Q.expl();
+      $$('input',fs).forEach(function(i){i.disabled=true});b.disabled=true;
+      if(ok){score++;award('q'+qi,20);}answered++;tone(ok?[660,880]:[300]);
+      if(answered===QS.length)endQuiz();
+    });
+    f.appendChild(fs);
+  });
+}
+function endQuiz(){
+  var e=$('#quizEnd');e.hidden=false;e.className='fb '+(score>=4?'ok':'neutral');
+  e.textContent='Obtuviste '+score+' de '+QS.length+'. '+(score>=4?'Muy bien: dominas las ideas centrales.':score>=3?'Vas bien. Repasa el laboratorio en las preguntas que fallaste.':'Vuelve al laboratorio de simetrías y a la cinta de traslación, y luego inténtalo otra vez.');
+  $('#quizRetry').hidden=false;if(score===QS.length)unlock('mente');partDone('e');
+}
+$('#quizRetry').addEventListener('click',function(){buildQuiz();$('#quiz').scrollIntoView({behavior:reduceMotion?'auto':'smooth'});});
+buildQuiz();
+
+/* ====== Reflexión ====== */
+['r1','r2','r3'].forEach(function(id){
+  var t=$('#'+id),v=store.get('tg-'+id);if(v)t.value=v;
+  t.addEventListener('input',function(){store.set('tg-'+id,t.value);checkR();});
+});
+var LV=['Todavía no lo sé','Sé un poco','Lo sé bien','Podría enseñarlo'],rate={pre:null,post:null};
+function buildRate(id,key){
+  var box=$('#'+id);
+  LV.forEach(function(t,i){var b=document.createElement('button');b.type='button';b.className='btn';b.setAttribute('aria-pressed','false');b.textContent=t;
+    b.addEventListener('click',function(){rate[key]=i;$$('.btn',box).forEach(function(x){x.setAttribute('aria-pressed',x===b)});rateUpdate();});box.appendChild(b);});
+}
+function rateUpdate(){
+  if(rate.pre!==null){award('pre',5);mark('movilizar');}
+  if(rate.post!==null)award('post',5);
+  if(rate.post!==null){var f=$('#rateFb');f.className='fb neutral';
+    f.textContent=rate.pre===null?'Hoy dices: “'+LV[rate.post]+'”.':'Empezaste en “'+LV[rate.pre]+'” y terminas en “'+LV[rate.post]+'”. '+(rate.post>rate.pre?'Avanzaste.':rate.post===rate.pre?'Sigues en el mismo nivel: vuelve al laboratorio o al taller si quieres subir.':'Revisa las secciones que te dejaron dudas.');}
+  checkR();
+}
+buildRate('preRate','pre');buildRate('postRate','post');
+function checkR(){var rf=['r1','r2','r3'].some(function(id){return $('#'+id).value.trim().length>=15});if(rf){award('refl',20);unlock('voz');}if(rate.post!==null&&rf)mark('concluir');}
+checkR();
+$('#rCopy').addEventListener('click',function(){
+  var txt='Mis reflexiones\n\n1. Simetría que encontré: '+$('#r1').value+'\n\n2. Lo que me enseñó un artesano o mayor: '+$('#r2').value+'\n\n3. Por qué aprender matemáticas desde lo propio: '+$('#r3').value;
+  copyText(txt,$('#rFb'),$('#rCopyTxt'));
+});
+
+/* ====== Logo, portada dinámica, constancia, avance visual ====== */
+drawBalay($('#logoSvg'),false);
+var tsvg=$('#trophySvg');drawBalay(tsvg,false);tsvg.classList.add('lk');
+(function(){
+  var hs=$('#heroSvg'),ax=el('g',{'class':'haxes','aria-hidden':'true'},hs);
+  for(var i=0;i<8;i++){var a=-Math.PI/2+i*Math.PI/8,c=Math.cos(a)*196,s=Math.sin(a)*196;
+    var ln=el('line',{x1:200-c,y1:200-s,x2:200+c,y2:200+s},ax);ln.style.setProperty('--i',i);}
+  function setAx(on){hs.classList.toggle('show-ax',on);$('#axesBtn').setAttribute('aria-pressed',on);$('#axesBtn').textContent=on?'Ocultar los ejes del balay':'Mostrar los ejes del balay';
+    $('#axesTxt').textContent=on?'Ocho ejes de espejo, separados 22,5° entre sí. Doblar por cualquiera deja las dos mitades iguales.':'Pasa el cursor por encima o toca el botón para ver sus ejes.';}
+  $('#axesBtn').addEventListener('click',function(){setAx(!hs.classList.contains('show-ax'));});
+  hs.addEventListener('click',function(){setAx(!hs.classList.contains('show-ax'));});
+  var hero=$('#portada'),tilt=$('#tilt');
+  if(!reduceMotion&&window.matchMedia&&window.matchMedia('(pointer:fine)').matches){
+    hero.addEventListener('pointermove',function(e){var r=hero.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;tilt.style.transform='perspective(900px) rotateY('+(x*12)+'deg) rotateX('+(-y*12)+'deg)';});
+    hero.addEventListener('pointerleave',function(){tilt.style.transform='';});
+  }
+  // barra de fases: sección visible
+  var map={movilizar:'movilizar',activar:'activar',explorar:'explorar',estructurar:'estructurar',taller:'aplicar',evaluacion:'aplicar',concluir:'concluir'};
+  var nav=$('.stepper');
+  if('IntersectionObserver' in window){
+    var so=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;
+      var k=map[e.target.id];
+      $$('#navList a').forEach(function(a){if(a.getAttribute('data-k')===k){a.setAttribute('aria-current','step');nav.scrollLeft=a.offsetLeft-nav.clientWidth/2+a.clientWidth/2;}else a.removeAttribute('aria-current');});
+    });},{rootMargin:'-35% 0px -60% 0px'});
+    Object.keys(map).forEach(function(id){var s=document.getElementById(id);if(s)so.observe(s);});
+    var ro=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');ro.unobserve(e.target);}});},{rootMargin:'0px 0px -8% 0px'});
+    $$('.card,.sec-h,.q,.big-outcome').forEach(function(n){n.classList.add('rv');ro.observe(n);});
+  }
+  // constancia
+  function certText(){
+    var nm=$('#certName').value.trim()||'Estudiante',inv=invariants(W);
+    return 'Constancia de recorrido: Tejiendo geometrías\nEstudiante: '+nm+'\nFecha: '+new Date().toLocaleDateString('es-CO')+'\nFases completadas: 6 de 6\nEvaluación: '+score+' de '+QS.length+' respuestas correctas\nMi patrón: '+($('#wName').value.trim()||'sin nombre')+' ('+(inv.length?listNames(inv):'sin simetrías')+')\nPunto de partida: '+LV[rate.pre]+'\nPunto de llegada: '+LV[rate.post];
+  }
+  $('#certBtn').addEventListener('click',function(){copyText(certText(),$('#certFb'),$('#certTxt'));});
+})();
+
+/* ====== Paleta y juego ====== */
+PAL.cur='canasto';
+function bandUrl(c){return 'url("data:image/svg+xml,'+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='60' height='30'><path d='M0 15L15 2L30 15L15 28Z' fill='"+c[0]+"'/><path d='M30 15L45 2L60 15L45 28Z' fill='"+c[1]+"'/></svg>")+'")';}
+function setPal(k){
+  k='canasto';PAL.cur=k;
+  document.documentElement.setAttribute('data-palette',k);
+  document.documentElement.style.setProperty('--band',bandUrl(PAL[k].b));
+}
+setPal('canasto');
+renderBadges();renderHud();$('.hud').classList.remove('bump');
+
+var G={on:false,score:0,streak:0,left:45,n:0,ok:0,t:null,M:null,key:null,ans:false,best:+(store.get('tg-best')||0),untimed:false,xpTotal:0};
+function gHud(){$('#gTime').textContent=G.untimed?'sin tiempo':G.left;$('#gScore').textContent=G.score;$('#gStreak').textContent=G.streak;$('#gBest').textContent=G.best;}
+function randPat(){
+  var modes=['v','h','vh','r180','r90','d4','none'],m=modes[Math.floor(Math.random()*modes.length)],M=mk(function(){return 0}),cs=5+Math.floor(Math.random()*7);
+  for(var c=0;c<cs;c++){var i=Math.floor(Math.random()*N),j=Math.floor(Math.random()*N);ORB[m](i,j).forEach(function(q){M[q[0]][q[1]]=1;});}
+  if(Math.random()<.4){var a=Math.floor(Math.random()*N),b=Math.floor(Math.random()*N);M[a][b]=M[a][b]?0:1;}
+  return M;
+}
+function gNext(){
+  var M=randPat(),inv=invariants(M),key;
+  if(inv.length&&Math.random()<.5)key=inv[Math.floor(Math.random()*inv.length)];
+  else{var rest=KEYS.filter(function(k){return inv.indexOf(k)<0}),pool=rest.length?rest:KEYS;key=pool[Math.floor(Math.random()*pool.length)];}
+  G.M=M;G.key=key;G.ans=inv.indexOf(key)>=0;
+  drawGrid($('#gSvg'),M,{cell:26});
+  $('#gSvg').setAttribute('aria-label','Patrón del reto. Filas: '+asText(M).replace(/\n/g,'. '));
+  $('#gQ').textContent='¿El patrón queda igual con: '+TR[key].label.toLowerCase()+'?';
+}
+function gAnswer(v){
+  if(!G.on)return;
+  var ok=(v===G.ans);
+  if(ok){G.score+=10+Math.min(G.streak,5)*5;G.streak++;G.ok++;tone([660]);}else{G.streak=0;tone([300]);}
+  G.n++;
+  var f=$('#gFb');f.className='fb '+(ok?'ok':'no');
+  f.textContent='Anterior: '+(ok?'correcto. ':'casi. ')+(G.ans?'Sí quedaba igual. '+TR[G.key].ok:'No quedaba igual con '+TR[G.key].label.toLowerCase()+'.');
+  gHud();
+  if(G.untimed&&G.n>=10){gEnd();return;}
+  gNext();
+}
+function gEnd(){
+  clearInterval(G.t);G.t=null;G.on=false;
+  $('#gPlay').hidden=true;$('#gStart').hidden=false;$('#gStart').textContent='Jugar otra vez';$('#gNoTime').disabled=false;
+  if(G.score>G.best){G.best=G.score;store.set('tg-best',G.best);}
+  var gain=Math.max(0,Math.min(Math.min(G.score,100),150-G.xpTotal));G.xpTotal+=gain;
+  gHud();award(null,gain);
+  $('#gEnd').textContent='Terminaste: '+G.score+' puntos y '+G.ok+' aciertos de '+G.n+'. Ganaste '+gain+' XP.'+(G.score>=G.best&&G.score>0?' Es tu mejor marca.':'');
+  if(!G.untimed&&G.score>=100)unlock('relampago');
+}
+$('#gStart').addEventListener('click',function(){
+  G.untimed=$('#gNoTime').checked;G.score=0;G.streak=0;G.n=0;G.ok=0;G.left=45;G.on=true;
+  $('#gEnd').textContent='';$('#gFb').textContent='';$('#gFb').className='';
+  $('#gPlay').hidden=false;this.hidden=true;$('#gNoTime').disabled=true;
+  gHud();gNext();
+  if(!G.untimed){G.t=setInterval(function(){G.left--;gHud();if(G.left<=0)gEnd();},1000);}
+  $('#gYes').focus();
+});
+$('#gYes').addEventListener('click',function(){gAnswer(true);});
+$('#gNo').addEventListener('click',function(){gAnswer(false);});
+gHud();
+})();
+</script>
+</body>
+</html>
